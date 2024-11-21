@@ -38,3 +38,7 @@ class RequestLengthGeneratorType(Enum):
 class AttentionBackend(Enum):
     FLASHINFER = "FLASHINFER"
     NO_OP = "NO_OP"
+
+class GlobalSchedulerType(Enum):
+    PULL = "PULL"
+    ROUND_ROBIN = "ROUND_ROBIN"

@@ -3,6 +3,8 @@ import math
 import time
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple
+from threading import Thread, Event
+from queue import Queue, PriorityQueue
 
 import zmq
 
@@ -10,9 +12,9 @@ from sarathi.config import ModelConfig, SystemConfig
 from sarathi.core.datatypes.comm_info import CommInfo
 from sarathi.core.datatypes.request_output import RequestOutput
 from sarathi.core.datatypes.sampling_params import SamplingParams
-from sarathi.core.datatypes.scheduler_output import SchedulerOutput
+from sarathi.core.datatypes.scheduler_output import SchedulerOutputs
 from sarathi.core.datatypes.sequence import SamplerOutputs, Sequence, SequenceMetadata
-from sarathi.core.datatypes.zmq_protocol import StepInputs
+from sarathi.core.datatypes.step_inputs import StepInputs
 from sarathi.core.scheduler.scheduler_registry import SchedulerRegistry
 from sarathi.core.sequence_manager.engine_sequence_manager import EngineSequenceManager
 from sarathi.engine.ray_utils import RayWorker, initialize_cluster, ray
@@ -22,15 +24,14 @@ from sarathi.metrics.cpu_timer import CpuTimer
 from sarathi.metrics.metrics_store import MetricsStore
 from sarathi.transformers_utils.tokenizer import get_tokenizer
 from sarathi.utils import Counter, get_ip, unset_cuda_visible_devices
-from sarathi.utils.threading_utils import synchronized
+from sarathi.utils.threading_utils import synchronized, exit_on_error
 
 logger = init_logger(__name__)
 
-MAX_WORKER_CONCURRENCY = 1
-MAX_ZMQ_RETRIES = 5
-ZMQ_RETRY_DELAY = 1
+_MAX_WORKER_CONCURRENCY = 1
+SCHEDULER_LOOP_DELAY = 0.01
 
-ModelParallelRank = Tuple[int, int, int]
+ModelParallelRank = Tuple[int, int]
 
 
 class BaseLLMEngine:
@@ -50,6 +51,9 @@ class BaseLLMEngine:
     def __init__(
         self,
         config: SystemConfig,
+        seq_counter: Optional[Counter] = None,
+        seq_waiting_queue: Optional[PriorityQueue] = None,
+        global_output_queue: Optional[Queue] = None,
     ) -> None:
         logger.info(
             "Initializing an LLM engine with config: "
@@ -57,10 +61,11 @@ class BaseLLMEngine:
             f"dtype={config.model_config.dtype}, "
             f"tensor_parallel_size={config.parallel_config.tensor_parallel_size}, "
             f"pipeline_parallel_size={config.parallel_config.pipeline_parallel_size}, "
-            f"cache_parallel_size={config.parallel_config.cache_parallel_size}, "
             f"seed={config.model_config.seed})"
         )
+        # TODO(woosuk): Print more configs in debug mode.
 
+        self.has_started_execution_loops = False
         self.config = config
         self._verify_args()
 
@@ -70,11 +75,12 @@ class BaseLLMEngine:
             revision=config.model_config.revision,
         )
 
-        self.seq_manager = self._get_seq_manager_impl()(
-            self.tokenizer,
-            config,
-        )
-        self.seq_counter = Counter()
+        self.seq_manager = EngineSequenceManager(self.tokenizer, config)
+
+        if seq_counter is None:
+            self.seq_counter = Counter()
+        else:
+            self.seq_counter = seq_counter
 
         self.metrics_store = MetricsStore.get_or_create_instance(
             config.replica_config,
@@ -86,8 +92,6 @@ class BaseLLMEngine:
 
         # Initialize the cluster.
         initialize_cluster()
-
-        self.comm_info = CommInfo(get_ip())
 
         # Create the parallel GPU workers.
         self._init_workers_ray()
@@ -103,6 +107,8 @@ class BaseLLMEngine:
 
         self.mark_initial_memory_profiling_done()
 
+        self.scheduler_queue = PriorityQueue()
+
         # Create the scheduler.
         self.scheduler = SchedulerRegistry.get(
             config.scheduler_config.get_type(),
@@ -110,44 +116,43 @@ class BaseLLMEngine:
             config.scheduler_config,
             config.cache_config,
             config.parallel_config,
+            seq_waiting_queue,
+            self.seq_manager,
+            self.metrics_store,
         )
+
+        self.waiting_queue = seq_waiting_queue
 
         self._scheduler_timer = CpuTimer(CpuOperationMetrics.SCHEDULE)
-        self._on_schedule_handling_timer = CpuTimer(
-            CpuOperationMetrics.ENGINE_ON_SCHEDULE_HANDLING
+        self._process_model_outputs_timer = CpuTimer(
+            CpuOperationMetrics.PROCESS_MODEL_OUTPUTS
         )
-        self._on_step_completed_handling_timer = CpuTimer(
-            CpuOperationMetrics.ENGINE_ON_STEP_COMPLETE_HANDLING
-        )
-        self.new_seqs: List[Sequence] = []
+
+
+        if global_output_queue is not None:
+            # We're dealing with a multi-replica setup here
+            # We need to share outputs between the replica-level LLM engine and the MultiReplicaLLMEngine class
+            # So we use a shared global output queue to share outputs between the two classes
+            self.global_output_queue: Queue = global_output_queue
+            # We will need to start a output thread similar to the one in pipeline_parallel_llm_engine.py
+            # to collect outputs from the global output queue and feed into the master output queue
+            self.schedule_event = Event()
+            self.pull_event = Event()
+            self.scheduler_timer_thread = Thread(target=self._scheduler_timer_loop, daemon=True)
+            self.schedule_thread = Thread(target=self._schedule_loop, daemon=True)
+        else:
+            # Just a dummy queue to satisfy the requirements
+            self.global_output_queue = Queue()
+
 
         self._run_workers("wait_till_ready")
-
-    def _get_seq_manager_impl(self):
-        return EngineSequenceManager
-
-    def _bind_zmq_socket(self, socket: zmq.Socket, port: int):
-        for attempt in range(MAX_ZMQ_RETRIES):
-            try:
-                socket.bind(f"tcp://*:{port}")
-                break
-            except zmq.ZMQError as e:
-                if attempt < MAX_ZMQ_RETRIES - 1:
-                    logger.info(
-                        f"Failed to bind enqueue socket, retrying in {ZMQ_RETRY_DELAY} seconds..."
-                    )
-                    time.sleep(ZMQ_RETRY_DELAY)
-                else:
-                    raise Exception(
-                        f"Failed to bind enqueue socket after {MAX_ZMQ_RETRIES} attempts"
-                    ) from e
 
     def _init_zmq_sockets(self):
         self.zmq_context = zmq.Context()
         self.enqueue_socket = self.zmq_context.socket(zmq.PUB)
-        self._bind_zmq_socket(self.enqueue_socket, self.comm_info.enqueue_socket_port)
+        self.enqueue_socket.bind(f"tcp://*:{self.comm_info.enqueue_socket_port}")
         self.output_socket = self.zmq_context.socket(zmq.PULL)
-        self._bind_zmq_socket(self.output_socket, self.comm_info.output_socket_port)
+        self.output_socket.bind(f"tcp://*:{self.comm_info.output_socket_port}")
 
     def _validate_parallel_config(self) -> None:
         assert self.config.parallel_config.pipeline_parallel_size == 1
@@ -161,48 +166,10 @@ class BaseLLMEngine:
 
         return BaseWorker
 
-    def get_resource_mapping(self):
-        if self.config.replica_config.resource_mapping:
-            return self.config.replica_config.resource_mapping
-
-        cluster_resources_keys = list(ray.available_resources().keys())
-        num_gpus = ray.available_resources()["GPU"]
-        ip_addresses = [
-            x
-            for x in cluster_resources_keys
-            if x.startswith("node:") and x != "node:__internal_head__"
-        ]
-
-        engine_ip = f"node:{get_ip()}"
-
-        ip_addresses.remove(engine_ip)
-        ip_addresses.insert(0, engine_ip)
-
-        num_nodes = len(ip_addresses)
-        assert num_nodes > 0, "No nodes found in the cluster"
-        assert num_gpus > 0, "No GPUs found in the cluster"
-        assert (
-            num_gpus % num_nodes == 0
-        ), f"Number of GPUs ({num_gpus}) is not a multiple of number of nodes ({num_nodes})"
-        num_gpus_per_node = int(num_gpus // num_nodes)
-
-        assert (
-            num_gpus >= self.config.parallel_config.world_size
-        ), f"Insufficient GPUs. Required: {self.config.parallel_config.world_size}, Available: {num_gpus}"
-
-        available_gpus = []
-        for ip_address in ip_addresses:
-            for gpu_id in range(num_gpus_per_node):
-                available_gpus.append((ip_address, gpu_id))
-
-        resource_mapping = []
-        for _ in range(self.config.parallel_config.world_size):
-            resource_mapping.append(available_gpus.pop(0))
-
-        return resource_mapping
-
     def _init_workers_ray(self, **ray_remote_kwargs):
-        resource_mapping = self.get_resource_mapping()
+        resource_mapping = self.config.replica_config.get_resource_mapping(
+            self.config.parallel_config.world_size
+        )
         logger.info(f"Starting workers with resource mapping: {resource_mapping}")
 
         self.workers: List[RayWorker] = []
@@ -219,19 +186,28 @@ class BaseLLMEngine:
 
             if node_ip:
                 worker_class = worker_class.options(
-                    max_concurrency=MAX_WORKER_CONCURRENCY,
+                    max_concurrency=_MAX_WORKER_CONCURRENCY,
                     resources={
                         node_ip: 0.01,
                     },
                 )
             else:
                 worker_class = worker_class.options(
-                    max_concurrency=MAX_WORKER_CONCURRENCY,
+                    max_concurrency=_MAX_WORKER_CONCURRENCY,
                 )
+
+            if rank == 0:
+                if node_ip:
+                    # remove node: prefix
+                    driver_ip = node_ip.split(":")[1]
+                else:
+                    driver_ip = get_ip()
 
             worker = worker_class.remote(self.config.model_config.trust_remote_code)
 
             self.workers.append(worker)
+
+        self.comm_info = CommInfo(driver_ip)
 
         # Initialize torch distributed process group for the workers.
         config = copy.deepcopy(self.config)
@@ -262,11 +238,6 @@ class BaseLLMEngine:
             self.config.parallel_config
         )
 
-    def _get_blocks_per_request(self) -> int:
-        return math.ceil(
-            self.config.model_config.max_model_len / self.config.cache_config.block_size
-        )
-
     def _init_cache(self) -> None:
         """Profiles the memory usage and initializes the KV cache."""
         # Get the maximum number of blocks that can be allocated on GPU.
@@ -290,7 +261,9 @@ class BaseLLMEngine:
                 "Try increasing `gpu_memory_utilization` when "
                 "initializing the engine."
             )
-        max_blocks_per_request = self._get_blocks_per_request()
+        max_blocks_per_request = math.ceil(
+            self.config.model_config.max_model_len / self.config.cache_config.block_size
+        )
         if num_gpu_blocks < max_blocks_per_request:
             raise ValueError(
                 f"Not enough available memory to schedule a request will maximum allowed length {self.config.model_config.max_model_len}. "
@@ -316,30 +289,31 @@ class BaseLLMEngine:
 
     def _on_step_completed(
         self,
-        scheduler_output: SchedulerOutput,
+        scheduler_outputs: SchedulerOutputs,
         ignored_seqs: List[SequenceMetadata],
         seq_metadata_list: List[SequenceMetadata],
         sampler_outputs: Optional[SamplerOutputs],
         start_time: float,
     ) -> List[RequestOutput]:
-        with self._on_step_completed_handling_timer:
+        with self._process_model_outputs_timer:
             self.seq_manager.on_step_completed(
-                scheduler_output.scheduled_seq_metadata_list,
+                scheduler_outputs,
                 sampler_outputs,
             )
-            self.scheduler.on_step_completed(time.time() - start_time)
+            self.scheduler.on_step_completed()
 
-        end_time = time.time()
+        end_time = time.perf_counter()
 
         self.metrics_store.on_batch_end(
             seq_metadata_list=seq_metadata_list,
-            scheduler_output=scheduler_output,
+            scheduler_outputs=scheduler_outputs,
             batch_start_time=start_time,
             batch_end_time=end_time,
         )
         all_request_outputs = self.seq_manager.generate_request_outputs(
             ignored_seqs, seq_metadata_list
         )
+        self.global_output_queue.put(all_request_outputs)
         return all_request_outputs
 
     def get_model_config(self) -> ModelConfig:
@@ -370,7 +344,7 @@ class BaseLLMEngine:
                 the current time.
         """
         if arrival_time is None:
-            arrival_time = time.time()
+            arrival_time = time.monotonic()
 
         if not seq_id:
             seq_id = str(next(self.seq_counter))
@@ -401,17 +375,22 @@ class BaseLLMEngine:
         self.scheduler.add_seq(seq)
         self.metrics_store.on_request_arrival(seq)
 
+    def add_seq(self, seq : Sequence):
+        self.seq_manager.add_seq(seq)
+
+        self._append_new_seq(copy.deepcopy(seq))
+        self.scheduler.add_seq(seq)
+        self.metrics_store.on_request_arrival(seq)
+
     @synchronized
     def _append_new_seq(self, seq: Sequence) -> None:
-        self.new_seqs.append(seq)
+        self.scheduler.add_to_new_seqs(seq)
 
     @synchronized
     def _get_new_seqs(
         self,
     ) -> List[Sequence]:
-        new_seqs = self.new_seqs
-        self.new_seqs = []
-        return new_seqs
+        return self.scheduler.get_new_seqs()
 
     def get_num_unfinished_requests(self) -> int:
         """Gets the number of unfinished requests."""
@@ -420,7 +399,7 @@ class BaseLLMEngine:
     def has_unfinished_requests(self) -> bool:
         """Returns True if there are unfinished requests."""
         return self.scheduler.has_unfinished_seqs()
-
+ 
     def step(self) -> List[RequestOutput]:
         """Performs one decoding iteration and returns newly generated results.
 
@@ -429,34 +408,31 @@ class BaseLLMEngine:
         Then, it executes the model and updates the scheduler with the model outputs.
         Finally, it decodes the sequences and returns the newly generated results.
         """
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         with self._scheduler_timer:
-            scheduler_output = self.scheduler.schedule()
+            scheduler_outputs = self.scheduler.schedule()
 
-        if scheduler_output.is_empty():
+        if scheduler_outputs.is_empty():
             return []
 
-        with self._on_schedule_handling_timer:
-            ignored_seqs, seq_metadata_list = self.seq_manager.on_schedule(
-                scheduler_output
-            )
+        ignored_seqs, seq_metadata_list = self.seq_manager.on_schedule(
+            scheduler_outputs
+        )
 
         self.enqueue_socket.send_pyobj(
             StepInputs(
-                scheduler_output,
+                scheduler_outputs,
                 new_seqs=self._get_new_seqs(),
             )
         )
-        step_outputs = self.output_socket.recv_pyobj()
-
-        assert step_outputs.schedule_id == scheduler_output.id
+        sampler_outputs = self.output_socket.recv_pyobj()
 
         return self._on_step_completed(
-            scheduler_output,
+            scheduler_outputs,
             ignored_seqs,
             seq_metadata_list,
-            step_outputs.sampler_outputs,
+            sampler_outputs,
             start_time,
         )
 
@@ -495,6 +471,29 @@ class BaseLLMEngine:
         for other_output in all_outputs[1:]:
             assert output == other_output
         return output
+    
+    def start_execution_loops(self) -> None:
+        if self.has_started_execution_loops:
+            return
+        self.has_started_execution_loops = True
+        self.schedule_event.set()
+        self.schedule_thread.start()
+        self.scheduler_timer_thread.start()
+    
+    @exit_on_error
+    def _scheduler_timer_loop(self) -> None:
+        while True:
+            time.sleep(SCHEDULER_LOOP_DELAY)
+            self.schedule_event.set()
+
+    @exit_on_error
+    def _schedule_loop(self) -> None:
+        while True:
+            self.schedule_event.wait()
+            self.schedule_event.clear()
+
+            if self.has_unfinished_requests():
+                self.step()
 
     def _run_worker(
         self,

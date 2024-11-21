@@ -1,5 +1,7 @@
+import copy
 import time
 from typing import List
+from queue import PriorityQueue
 
 import numpy as np
 
@@ -9,10 +11,15 @@ from sarathi.config import (
     ParallelConfig,
     SarathiSchedulerConfig,
 )
-from sarathi.core.datatypes.scheduler_output import SchedulerOutput
-from sarathi.core.datatypes.sequence import Sequence, SequenceScheduleMetadata
+from sarathi.core.block_space_manager.sarathi_block_space_manager import (
+    SarathiBlockSpaceManager,
+)
+from sarathi.core.datatypes.scheduler_output import SchedulerOutputs
+from sarathi.core.datatypes.sequence import Sequence, SequenceScheduleMetadata, SequenceWithPriority
+from sarathi.core.sequence_manager.engine_sequence_manager import EngineSequenceManager
 from sarathi.core.scheduler.base_scheduler import BaseScheduler
 from sarathi.logger import init_logger
+from sarathi.metrics.metrics_store import MetricsStore
 
 logger = init_logger(__name__)
 
@@ -25,26 +32,79 @@ class SarathiScheduler(BaseScheduler):
         scheduler_config: SarathiSchedulerConfig,
         cache_config: CacheConfig,
         parallel_config: ParallelConfig,
+        waiting_queue : PriorityQueue,
+        replica_seq_manager : EngineSequenceManager,
+        metric_store : MetricsStore,
     ) -> None:
-        super().__init__(model_config, scheduler_config, cache_config, parallel_config)
+        super().__init__(model_config, scheduler_config, cache_config, parallel_config, waiting_queue, replica_seq_manager, metric_store)
 
         self.chunk_size = self.scheduler_config.chunk_size
+        self.enable_dynamic_chunking_schedule = (
+            self.scheduler_config.enable_dynamic_chunking_schedule
+        )
+        # next four params apply only when using dynamic schedule
+        self.low_chunk_size = self.scheduler_config.low_chunk_size
+        self.high_chunk_size = self.scheduler_config.high_chunk_size
+        self.chunk_schedule_max_tokens = self.scheduler_config.chunk_schedule_max_tokens
+        self.chunk_schedule_stages = self.scheduler_config.chunk_schedule_stages
+
+        if self.enable_dynamic_chunking_schedule:
+            assert self.chunk_schedule_stages > 0
+            assert self.chunk_schedule_max_tokens > 0
+            assert self.low_chunk_size % 32 == 0
+            assert self.high_chunk_size % 32 == 0
+            self._chunk_sizes = self._compute_chunk_size_schedule()
+            self._tokens_per_stage = int(
+                np.ceil(self.chunk_schedule_max_tokens / self.chunk_schedule_stages)
+            )
+
+    def _compute_chunk_size_schedule(self):
+        # create num_steps equally spaced chunk sizes between low_chunk_size and high_chunk_size
+        chunk_sizes = np.linspace(
+            self.low_chunk_size,
+            self.high_chunk_size,
+            self.chunk_schedule_stages,
+            dtype=np.int32,
+        )[::-1]
+        # align each chunk size to the nearest multiple of 32 or self.low_chunk_size
+        round_of_chunk_sizes = min(32, self.low_chunk_size)
+        chunk_sizes = (
+            np.round(chunk_sizes / round_of_chunk_sizes) * round_of_chunk_sizes
+        )
+        chunk_sizes = chunk_sizes.astype(np.int64).tolist()
+
+        return chunk_sizes
+
+    def get_block_space_manager_class(self):
+        return SarathiBlockSpaceManager
 
     def _get_seq_next_num_prefill_tokens(
         self, seq: Sequence, num_batched_tokens: int
     ) -> int:
         assert not seq.is_finished()
 
+        if self.enable_dynamic_chunking_schedule:
+            request_stage_idx = int(
+                np.ceil(
+                    seq.get_num_prompt_tokens_stage_processed()
+                    // self._tokens_per_stage
+                )
+            )
+            assert request_stage_idx < len(self._chunk_sizes)
+            chunk_size = self._chunk_sizes[request_stage_idx]
+        else:
+            chunk_size = self.chunk_size
+
         next_num_tokens = min(
             seq.get_prompt_len() - seq.get_num_prompt_tokens_stage_processed(),
-            self.chunk_size - num_batched_tokens,
+            chunk_size - num_batched_tokens,
         )
 
         return next_num_tokens
 
-    def _schedule(self) -> SchedulerOutput:
+    def _schedule(self) -> SchedulerOutputs:
         # Fix the current time.
-        now = time.time()
+        now = time.monotonic()
 
         running: List[Sequence] = []
         ignored_seq_ids: List[str] = []
@@ -85,7 +145,7 @@ class SarathiScheduler(BaseScheduler):
                 running_prefills.append(seq)
                 continue
 
-            while not self._can_append_slot():
+            while not self.block_manager.can_append_slot():
                 if self.running:
                     # Preempt the lowest-priority sequence groups.
                     victim_seq = self.running.pop(-1)
@@ -103,7 +163,7 @@ class SarathiScheduler(BaseScheduler):
                 running.append(seq)
                 num_batched_tokens += 1
                 scheduled_seq_metadata_list.append(
-                    SequenceScheduleMetadata.from_sequence(self._iteration_id, seq)
+                    SequenceScheduleMetadata.from_sequence(seq)
                 )
 
         # now add the requests with prefill incomplete
@@ -128,7 +188,7 @@ class SarathiScheduler(BaseScheduler):
             num_batched_tokens += next_num_prefill_tokens
             scheduled_seq_metadata_list.append(
                 SequenceScheduleMetadata.from_sequence(
-                    self._iteration_id, seq, prompt_chunk_len=next_num_prefill_tokens
+                    seq, prompt_chunk_len=next_num_prefill_tokens
                 )
             )
             running.append(seq)
@@ -140,8 +200,9 @@ class SarathiScheduler(BaseScheduler):
         # Optimization: We do not sort the waiting queue since the preempted
         # sequence groups are added to the front and the new sequence groups
         # are added to the back.
-        while self.waiting:
-            seq = self.waiting[0]
+        while self.waiting.qsize() > 0:
+            seq_wrapped = self.waiting.queue[0]
+            seq = seq_wrapped.seq
 
             # This is required to handle benchmarking where we set request arrival time ahead of time
             if seq.arrival_time > now:
@@ -152,7 +213,7 @@ class SarathiScheduler(BaseScheduler):
                 continue
 
             # If the sequence group cannot be allocated, stop.
-            if not self._can_allocate(seq):
+            if not self.block_manager.can_allocate(seq):
                 # this is different from vllm scheduler
                 # even if we cannot allocate this sequence group
                 # there might be other sequence groups that can be allocated
@@ -170,22 +231,30 @@ class SarathiScheduler(BaseScheduler):
 
             if next_num_prefill_tokens == 0:
                 break
-
-            seq = self.waiting.pop(0)
+            
+            seq_wrapped = self.waiting.get()
+            seq = seq_wrapped.seq
             self._allocate(seq)
             num_batched_tokens += next_num_prefill_tokens
             scheduled_seq_metadata_list.append(
                 SequenceScheduleMetadata.from_sequence(
-                    self._iteration_id, seq, prompt_chunk_len=next_num_prefill_tokens
+                    seq, prompt_chunk_len=next_num_prefill_tokens
                 )
             )
+
+            if seq.seq_id not in self.seq_seen:
+                self.add_seq_to_seq_manager(seq)
+                self.add_to_new_seqs(copy.deepcopy(seq))
+                self.seq_seen.add(seq.seq_id)
+            self.metrics_store.on_request_arrival(seq)
+
             running.append(seq)
 
         # make sure that prefills are at the start of the batch, so that we don't violate assumptions
         # made in the original vllm codebase
         self.running = running
 
-        return SchedulerOutput(
+        return SchedulerOutputs(
             id=self._iteration_id,
             ignored_seq_ids=ignored_seq_ids,
             preempted_seq_ids=preempted_seq_ids,

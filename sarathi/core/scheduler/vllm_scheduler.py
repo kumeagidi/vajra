@@ -1,11 +1,17 @@
 import time
 from typing import List
+from queue import PriorityQueue
 
 from sarathi.config import CacheConfig, ModelConfig, ParallelConfig, VllmSchedulerConfig
-from sarathi.core.datatypes.scheduler_output import SchedulerOutput
-from sarathi.core.datatypes.sequence import Sequence, SequenceScheduleMetadata
+from sarathi.core.block_space_manager.vllm_block_space_manager import (
+    VLLMBlockSpaceManager,
+)
+from sarathi.core.datatypes.scheduler_output import SchedulerOutputs
+from sarathi.core.datatypes.sequence import Sequence, SequenceScheduleMetadata, SequenceWithPriority
+from sarathi.core.sequence_manager.engine_sequence_manager import EngineSequenceManager
 from sarathi.core.scheduler.base_scheduler import BaseScheduler
 from sarathi.logger import init_logger
+from sarathi.metrics.metrics_store import MetricsStore
 
 logger = init_logger(__name__)
 
@@ -18,17 +24,24 @@ class VLLMScheduler(BaseScheduler):
         scheduler_config: VllmSchedulerConfig,
         cache_config: CacheConfig,
         parallel_config: ParallelConfig,
+        waiting_queue : PriorityQueue,
+        replica_seq_manager : EngineSequenceManager,
+        metric_store : MetricsStore,
+
     ) -> None:
-        super().__init__(model_config, scheduler_config, cache_config, parallel_config)
+        super().__init__(model_config, scheduler_config, cache_config, parallel_config, waiting_queue, replica_seq_manager, metric_store)
 
         self.max_num_batched_tokens = self.scheduler_config.get_max_num_batched_tokens(
             self.model_config.max_model_len
         )
         self.prompt_limit = self.max_num_batched_tokens
 
-    def _schedule(self) -> SchedulerOutput:
+    def get_block_space_manager_class(self):
+        return VLLMBlockSpaceManager
+
+    def _schedule(self) -> SchedulerOutputs:
         # Fix the current time.
-        now = time.time()
+        now = time.monotonic()
 
         ignored_seq_ids: List[str] = []
         preempted_seq_ids: List[str] = []
@@ -40,8 +53,10 @@ class VLLMScheduler(BaseScheduler):
         # Optimization: We do not sort the waiting queue since the preempted
         # sequence groups are added to the front and the new sequence groups
         # are added to the back.
-        while self.waiting:
-            seq = self.waiting[0]
+        while self.waiting.qsize() > 0:
+            seq_wrapped = self.waiting.queue[0]
+            seq = seq_wrapped.seq
+
             # This is required to handle benchmarking where
             # we set request arrival time ahead of time
             if seq.arrival_time > now:
@@ -53,7 +68,7 @@ class VLLMScheduler(BaseScheduler):
                 continue
 
             # If the sequence group cannot be allocated, stop.
-            if not self._can_allocate(seq):
+            if not self.block_manager.can_allocate(seq):
                 break
 
             # If the number of batched tokens exceeds the limit, stop.
@@ -62,17 +77,18 @@ class VLLMScheduler(BaseScheduler):
 
             if len(self.running) + 1 > self.scheduler_config.max_num_seqs:
                 break
-
-            seq = self.waiting.pop(0)
+            
+            seq_wrapped = self.waiting.get()
+            seq = seq_wrapped.seq
             self._allocate(seq)
             num_batched_tokens += num_prompt_tokens
             scheduled_seq_metadata_list.append(
-                SequenceScheduleMetadata.from_sequence(self._iteration_id, seq)
+                SequenceScheduleMetadata.from_sequence(seq)
             )
             self.running.append(seq)
 
         if scheduled_seq_metadata_list or ignored_seq_ids:
-            return SchedulerOutput(
+            return SchedulerOutputs(
                 id=self._iteration_id,
                 ignored_seq_ids=ignored_seq_ids,
                 preempted_seq_ids=[],
@@ -98,7 +114,7 @@ class VLLMScheduler(BaseScheduler):
 
             assert seq.prompt_stage_processing_finished
 
-            while not self._can_append_slot():
+            while not self.block_manager.can_append_slot():
                 if self.running:
                     # Preempt the lowest-priority sequence groups.
                     victim_seq = self.running.pop(-1)
@@ -115,12 +131,12 @@ class VLLMScheduler(BaseScheduler):
                 self._append_slot(seq)
                 running.append(seq)
                 scheduled_seq_metadata_list.append(
-                    SequenceScheduleMetadata.from_sequence(self._iteration_id, seq)
+                    SequenceScheduleMetadata.from_sequence(seq)
                 )
 
         self.running = running
 
-        return SchedulerOutput(
+        return SchedulerOutputs(
             id=self._iteration_id,
             ignored_seq_ids=[],
             preempted_seq_ids=preempted_seq_ids,

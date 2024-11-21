@@ -7,7 +7,7 @@ from sarathi.config.base_poly_config import BasePolyConfig
 from sarathi.config.flat_dataclass import create_flat_dataclass
 from sarathi.logger import init_logger
 from sarathi.transformers_utils.config import get_config
-from sarathi.types import AttentionBackend, ResourceMapping, SchedulerType
+from sarathi.types import AttentionBackend, ResourceMapping, SchedulerType, GlobalSchedulerType
 from sarathi.utils.hf_utils import get_and_verify_dtype, get_and_verify_max_len
 
 logger = init_logger(__name__)
@@ -253,7 +253,6 @@ class SimpleChunkingSchedulerConfig(BaseSchedulerConfig):
 
 @dataclass
 class OrcaSchedulerConfig(BaseSchedulerConfig):
-
     def get_max_num_batched_tokens(self, max_model_len: int):
         return self.max_num_seqs * max_model_len
 
@@ -264,7 +263,6 @@ class OrcaSchedulerConfig(BaseSchedulerConfig):
 
 @dataclass
 class FasterTransformerSchedulerConfig(BaseSchedulerConfig):
-
     def get_max_num_batched_tokens(self, max_model_len: int):
         return self.max_num_seqs * max_model_len
 
@@ -424,6 +422,28 @@ class WorkerConfig:
 
 
 @dataclass
+class BaseGlobalSchedulerTypeConfig(BasePolyConfig):
+    scheduler_type: str = field(
+        default="pull",
+        metadata={"help": "Replica level scheduler type either pull or RR"},
+    )
+
+
+@dataclass
+class PullGlobalSchedulerConfig(BaseGlobalSchedulerTypeConfig):
+    @staticmethod
+    def get_type():
+        return GlobalSchedulerType.PULL
+
+
+@dataclass
+class RoundRobinGlobalSchedulerConfig(BaseGlobalSchedulerTypeConfig):
+    @staticmethod
+    def get_type():
+        return GlobalSchedulerType.ROUND_ROBIN
+
+
+@dataclass
 class SystemConfig:
     replica_config: ReplicaConfig = field(default_factory=ReplicaConfig)
     model_config: ModelConfig = field(default_factory=ModelConfig)
@@ -434,6 +454,10 @@ class SystemConfig:
         default_factory=SarathiSchedulerConfig
     )
     metrics_config: MetricsConfig = field(default_factory=MetricsConfig)
+    num_replicas: int = field(default=1, metadata={"help": "Number of replicas."})
+    global_scheduler_config : BaseGlobalSchedulerTypeConfig = field(
+        default_factory=BaseGlobalSchedulerTypeConfig
+    )
 
 
 @dataclass

@@ -2,8 +2,9 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Optional
 
-from sarathi.config import BaseEndpointConfig
+from sarathi.config import BaseEndpointConfig, BaseGlobalSchedulerTypeConfig
 from sarathi.config.base_poly_config import BasePolyConfig
+from sarathi.config.flat_dataclass import create_flat_dataclass
 from sarathi.logger import init_logger
 from sarathi.types import (
     ReplicaResourceMapping,
@@ -193,18 +194,20 @@ class TraceRequestGeneratorConfig(BaseRequestGeneratorConfig):
         default="data/processed_traces/sydney_enterprise.csv",
         metadata={"help": "Path to the trace file for request generation."},
     )
-    date: str = field(default=None, metadata={"help": "Date for the trace data."})
+    date: str = field(
+        default="2023-08-21", metadata={"help": "Date for the trace data."}
+    )
     prefill_scale_factor: float = field(
-        default=1, metadata={"help": "Scale factor for prefill tokens."}
+        default=0.3, metadata={"help": "Scale factor for prefill tokens."}
     )
     decode_scale_factor: float = field(
         default=1, metadata={"help": "Scale factor for decode tokens."}
     )
     time_scale_factor: float = field(
-        default=1, metadata={"help": "Scale factor for time intervals."}
+        default=0.04, metadata={"help": "Scale factor for time intervals."}
     )
     max_tokens: int = field(
-        default=None, metadata={"help": "Maximum number of tokens allowed."}
+        default=4096, metadata={"help": "Maximum number of tokens allowed."}
     )
 
     @staticmethod
