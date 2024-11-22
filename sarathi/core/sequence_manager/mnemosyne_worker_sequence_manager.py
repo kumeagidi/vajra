@@ -202,7 +202,7 @@ class MnemosyneWorkerSequenceManager(WorkerSequenceManager):
             save_kv_cache = self.group_id == seq_sched_metadata.active_group_ids[-1]
 
             seq_metadata = MnemosyneSequenceMetadata(
-                seq_sched_metadata.schedule_id,
+                # seq_sched_metadata.schedule_id,
                 seq,
                 self._get_block_table(seq),
                 seq_sched_metadata.num_prompt_tokens,

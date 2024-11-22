@@ -190,7 +190,7 @@ class ModelRunner:
                 sampling_params=sampling_params,
             )
             seq_metadata = SequenceMetadata(
-                schedule_id=0,
+                # schedule_id=0,
                 seq=seq,
                 block_table=None,
                 prompt_chunk_len=chunk_size,
@@ -214,7 +214,7 @@ class ModelRunner:
                     sampling_params=sampling_params,
                 )
                 seq_metadata = SequenceMetadata(
-                    schedule_id=0,
+                    # schedule_id=0,
                     seq=seq,
                     block_table=None,
                     prompt_chunk_len=seq_len,
@@ -291,6 +291,7 @@ class ModelRunner:
         seq_metadata_list: List[SequenceMetadata],
         gpu_cache: Optional[List[torch.Tensor]] = None,
     ) -> Optional[SamplerOutputs]:
+        # TODO: returns an empty list which causes the errors we see.
         if not seq_metadata_list:
             return []
 
@@ -309,10 +310,9 @@ class ModelRunner:
         is_prefill_batch = all(
             seq_metadata.is_prompt for seq_metadata in seq_metadata_list
         )
-
-        if scheduler_output.skip_model_execution or (
-            self.config.worker_config.skip_prefill and is_prefill_batch
-        ):
+        
+        # if scheduler_output.skip_model_execution or
+        if  self.config.worker_config.skip_prefill and is_prefill_batch:
             output = torch.zeros(
                 input_tokens.shape[0],
                 self.model.config.hidden_size,

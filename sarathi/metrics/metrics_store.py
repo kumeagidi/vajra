@@ -509,12 +509,12 @@ class MetricsStore:
     def on_batch_end(
         self,
         seq_metadata_list: List[SequenceMetadata],
-        scheduler_output: SchedulerOutputs,
+        scheduler_outputs: SchedulerOutputs,
         batch_start_time: float,
         batch_end_time: float,
     ) -> None:
         self._process_individual_batch_metrics()
-        self.next_batch_id = scheduler_output.id + 1
+        self.next_batch_id = scheduler_outputs.id + 1
         execution_time = batch_end_time - batch_start_time
 
         for seq_metadata in seq_metadata_list:
@@ -526,7 +526,7 @@ class MetricsStore:
             self.batch_metrics_time_distribution[
                 BatchMetricsTimeDistribution.INTER_BATCH_DELAY
             ].put_pair(
-                scheduler_output.id,
+                scheduler_outputs.id,
                 batch_start_time - self.last_batch_end_time,
             )
         self.last_batch_end_time = batch_end_time
@@ -534,28 +534,28 @@ class MetricsStore:
         self.batch_metrics_count_distribution[
             BatchMetricsCountDistribution.BATCH_NUM_TOKENS
         ].put_pair(
-            scheduler_output.id,
-            scheduler_output.num_batched_tokens,
+            scheduler_outputs.id,
+            scheduler_outputs.num_batched_tokens,
         )
         self.batch_metrics_count_distribution[
             BatchMetricsCountDistribution.BATCH_NUM_PREFILL_TOKENS
-        ].put_pair(scheduler_output.id, scheduler_output.num_batched_prompt_tokens)
+        ].put_pair(scheduler_outputs.id, scheduler_outputs.num_batched_prompt_tokens)
         self.batch_metrics_count_distribution[
             BatchMetricsCountDistribution.BATCH_NUM_DECODE_TOKENS
-        ].put_pair(scheduler_output.id, scheduler_output.num_batched_output_tokens)
+        ].put_pair(scheduler_outputs.id, scheduler_outputs.num_batched_output_tokens)
 
         self.batch_metrics_count_distribution[
             BatchMetricsCountDistribution.BATCH_SIZE
-        ].put_pair(scheduler_output.id, len(seq_metadata_list))
+        ].put_pair(scheduler_outputs.id, len(seq_metadata_list))
         # add the only time distribution we have for batch
         self.batch_metrics_time_distribution[
             BatchMetricsTimeDistribution.BATCH_EXECUTION_TIME
-        ].put_pair(scheduler_output.id, execution_time)
+        ].put_pair(scheduler_outputs.id, execution_time)
         self.ordered_data_series[OrderedDataSeries.BATCH_EXECUTION_TIME].put(
             1, execution_time
         )
         self.ordered_data_series[OrderedDataSeries.BATCH_NUM_TOKENS].put(
-            1, scheduler_output.num_batched_output_tokens
+            1, scheduler_outputs.num_batched_output_tokens
         )
 
     def _to_chrome_trace_dict(

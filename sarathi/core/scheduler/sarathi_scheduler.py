@@ -241,11 +241,12 @@ class SarathiScheduler(BaseScheduler):
                     seq=seq, prompt_chunk_len=next_num_prefill_tokens
                 )
             )
-
-            if seq.seq_id not in self.seq_seen:
-                self.add_seq_to_seq_manager(seq)
-                self.add_to_new_seqs(copy.deepcopy(seq))
-                self.seq_seen.add(seq.seq_id)
+            # If this isn't commented out, then an assertion error occurs
+            # in base sequence manager.
+            # if seq.seq_id not in self.seq_seen:
+            #     self.add_seq_to_seq_manager(seq)
+            #     self.add_to_new_seqs(copy.deepcopy(seq))
+            #     self.seq_seen.add(seq.seq_id)
             self.metrics_store.on_request_arrival(seq)
 
             running.append(seq)

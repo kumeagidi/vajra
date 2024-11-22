@@ -197,7 +197,7 @@ class BaseWorker:
         self, scheduler_output: SchedulerOutputs, sampler_outputs: SamplerOutputs
     ) -> None:
         self.seq_manager.on_step_completed(
-            scheduler_output.scheduled_seq_metadata_list, sampler_outputs
+            scheduler_output, sampler_outputs #Changed this back to just scheduler output instead of the list.
         )
 
     @torch.inference_mode()
@@ -232,6 +232,14 @@ class BaseWorker:
             self.gpu_cache,
         )
 
+        # print("TEST", type(sampler_outputs))
+        # if sampler_outputs is None:
+        #     sampler_outputs = StepOutputs(0, [])
+        # print("TEST", type(sampler_outputs))
+
+        # # Made the model executor return a StepOutputs object for now.
+        # sampler_outputs = StepOutputs(0, sampler_outputs)
+
         with self.on_step_completed_handling_timer:
             self.on_step_completed(scheduler_output, sampler_outputs)
 
@@ -265,6 +273,7 @@ class BaseWorker:
 
             output = self.execute_model(step_inputs.scheduler_output)
 
+            #print(type(output))
             if not self.is_tensor_parallel_rank_zero:
                 continue
 

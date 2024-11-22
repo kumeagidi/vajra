@@ -213,7 +213,7 @@ class FlashinferAttentionWrapper(BaseAttentionWrapper):
                     not contains_multi_group_prefill_seq
                 ), "Only one prefill sequence is allowed when we have multi-group sequence."
 
-            self.iter_id = seq_metadata.schedule_id
+            # self.iter_id = seq_metadata.schedule_id
 
             is_multi_group_seq = False
 

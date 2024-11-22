@@ -52,7 +52,7 @@ class Sampler(nn.Module):
         ):
             return [
                 SamplerOutput(
-                    seq_metadata_list[0].schedule_id,
+                    # seq_metadata_list[0].schedule_id,
                     seq_metadata_list[0].seq.seq_id,
                     output_token=0,
                 )
@@ -230,7 +230,8 @@ def _sample(
 
         for seq_idx, sample_result in zip(seq_indices, sample_results):
             seq_id = seq_metadata_list[seq_idx].seq.seq_id
-            schedule_id = seq_metadata_list[seq_idx].schedule_id
-            outputs[seq_idx] = SamplerOutput(schedule_id, seq_id, sample_result)
+            # schedule_id = seq_metadata_list[seq_idx].schedule_id
+            #outputs[seq_idx] = SamplerOutput(schedule_id, seq_id, sample_result)
+            outputs[seq_idx] = SamplerOutput(seq_id, sample_result)
 
     return outputs

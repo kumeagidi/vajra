@@ -254,11 +254,11 @@ class SequenceScheduleMetadata:
 
     def __init__(
         self,
-        schedule_id: int,
+        # schedule_id: int,
         seq_id: str,
         prompt_chunk_len: int,
     ) -> None:
-        self.schedule_id = schedule_id
+        # self.schedule_id = schedule_id
         self.seq_id = seq_id
         self.prompt_chunk_len = prompt_chunk_len
 
@@ -301,7 +301,7 @@ class SequenceScheduleMetadata:
 
     def __str__(self) -> str:
         return (
-            f"SequenceScheduleMetadata(schedule_id={self.schedule_id}, "
+            # f"SequenceScheduleMetadata(schedule_id={self.schedule_id}, "
             f"seq_id={self.seq_id}, "
             f"prompt_chunk_len={self.prompt_chunk_len})"
         )
@@ -313,19 +313,20 @@ class SequenceScheduleMetadata:
 class MnemosyneSequenceScheduleMetadata(SequenceScheduleMetadata):
     def __init__(
         self,
-        schedule_id: int,
+        # schedule_id: int,
         seq_id: int,
         prompt_chunk_len: int,
         group_block_mapping: Dict[int, int],
         active_group_ids: List[int],
     ) -> None:
-        super().__init__(schedule_id, seq_id, prompt_chunk_len)
+        # super().__init__(schedule_id, seq_id, prompt_chunk_len)
+        super().__init__(seq_id, prompt_chunk_len)
         self.group_block_mapping = group_block_mapping
         self.active_group_ids = active_group_ids
 
     def __str__(self) -> str:
         return (
-            f"MnemosyneSequenceScheduleMetadata(schedule_id={self.schedule_id}, "
+            # f"MnemosyneSequenceScheduleMetadata(schedule_id={self.schedule_id}, "
             f"seq_id={self.seq_id}, "
             f"prompt_chunk_len={self.prompt_chunk_len}, "
             f"group_block_mapping={self.group_block_mapping}, "
@@ -346,12 +347,12 @@ class SequenceMetadata:
 
     def __init__(
         self,
-        schedule_id: int,
+        # schedule_id: int,
         seq: Sequence,
         block_table: Optional[List[int]],
         prompt_chunk_len: int,
     ) -> None:
-        self.schedule_id = schedule_id
+        # self.schedule_id = schedule_id
         self.seq = seq
         self.block_table = block_table
         self.prompt_chunk_len = prompt_chunk_len
@@ -380,7 +381,7 @@ class SequenceMetadata:
 
     def __str__(self) -> str:
         return (
-            f"SequenceMetadata(schedule_id={self.schedule_id}, "
+            # f"SequenceMetadata(schedule_id={self.schedule_id}, "
             f"seq_id={self.seq.seq_id}, "
             f"prompt_chunk_len={self.prompt_chunk_len})"
         )
@@ -395,7 +396,7 @@ class SequenceMetadata:
 class MnemosyneSequenceMetadata(SequenceMetadata):
     def __init__(
         self,
-        schedule_id: int,
+        # schedule_id: int,
         seq: Sequence,
         block_table: Optional[List[int]],
         prompt_chunk_len: int,
@@ -404,7 +405,7 @@ class MnemosyneSequenceMetadata(SequenceMetadata):
         group_ids: List[int],
     ) -> None:
         super().__init__(
-            schedule_id,
+            # schedule_id,
             seq,
             block_table,
             prompt_chunk_len,
@@ -415,7 +416,7 @@ class MnemosyneSequenceMetadata(SequenceMetadata):
 
     def __str__(self) -> str:
         return (
-            f"MnemosyneSequenceMetadata(schedule_id={self.schedule_id}, "
+            # f"MnemosyneSequenceMetadata(schedule_id={self.schedule_id}, "
             f"seq_id={self.seq.seq_id}, "
             f"prompt_chunk_len={self.prompt_chunk_len}, "
             f"kv_cache_len={self.kv_cache_len}, "
@@ -438,17 +439,17 @@ class SamplerOutput:
 
     def __init__(
         self,
-        schedule_id: int,
+        # schedule_id: int,
         seq_id: str,
         output_token: int,
     ) -> None:
-        self.schedule_id = schedule_id
+        # self.schedule_id = schedule_id
         self.seq_id = seq_id
         self.output_token = output_token
 
     def __repr__(self) -> str:
         return (
-            f"SamplerOutput(schedule_id={self.schedule_id}, "
+            # f"SamplerOutput(schedule_id={self.schedule_id}, "
             f"seq_id={self.seq_id}, "
             f"output_token={self.output_token}))"
         )
@@ -457,8 +458,8 @@ class SamplerOutput:
         if not isinstance(other, SamplerOutput):
             raise NotImplementedError()
         return (
-            self.schedule_id == other.schedule_id
-            and self.seq_id == other.seq_id
+            # self.schedule_id == other.schedule_id and
+            self.seq_id == other.seq_id
             and self.output_token == other.output_token
         )
 

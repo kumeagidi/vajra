@@ -51,7 +51,7 @@ BASE_OUTPUT_DIR = "./offline_inference_output"
 # ]
 
 num_gpus = 1
-num_prompts = 128
+num_prompts = 10
 num_prefill_tokens = 256
 num_decode_tokens = 256
 batch_size = 128

@@ -11,6 +11,8 @@ from sarathi.core.datatypes.sequence import (
     SequenceMetadata,
     SequenceScheduleMetadata,
 )
+
+from sarathi.core.datatypes.zmq_protocol import StepOutputs
 from sarathi.core.datatypes.sequence_status import SequenceStatus
 from sarathi.utils.threading_utils import synchronized
 
@@ -115,8 +117,13 @@ class BaseSequenceManager(ABC):
     def on_step_completed(
         self,
         scheduler_outputs: SchedulerOutputs,
-        sampler_outputs: Optional[SamplerOutputs],
+        sampler_outputs: Optional[SamplerOutputs], # This isn't true anymore. SamplerOutputs can be a list, or a StepOutputs object (I wrote simple fixes for now)
     ) -> None:
+        # ! Noticed that sampler_outputs could sometimes be a StepOutputs object.
+        # ! Added checks to handle this edgecase.
+        if type(sampler_outputs)  == StepOutputs:
+            sampler_outputs = sampler_outputs.sampler_outputs
+
         for scheduled_seq_metadata, sampler_output in zip(
             scheduler_outputs.scheduled_seq_metadata_list, sampler_outputs
         ):
