@@ -238,7 +238,7 @@ class SarathiScheduler(BaseScheduler):
             num_batched_tokens += next_num_prefill_tokens
             scheduled_seq_metadata_list.append(
                 SequenceScheduleMetadata.from_sequence(
-                    seq, prompt_chunk_len=next_num_prefill_tokens
+                    seq=seq, prompt_chunk_len=next_num_prefill_tokens
                 )
             )
 

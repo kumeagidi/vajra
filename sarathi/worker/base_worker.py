@@ -11,7 +11,7 @@ import zmq
 
 from sarathi.config import CacheConfig, ParallelConfig, SystemConfig
 from sarathi.core.datatypes.comm_info import CommInfo
-from sarathi.core.datatypes.scheduler_output import SchedulerOutput
+from sarathi.core.datatypes.scheduler_output import SchedulerOutputs
 from sarathi.core.datatypes.sequence import SamplerOutputs
 from sarathi.core.datatypes.zmq_protocol import StepOutputs
 from sarathi.core.sequence_manager.worker_sequence_manager import WorkerSequenceManager
@@ -194,7 +194,7 @@ class BaseWorker:
         )
 
     def on_step_completed(
-        self, scheduler_output: SchedulerOutput, sampler_outputs: SamplerOutputs
+        self, scheduler_output: SchedulerOutputs, sampler_outputs: SamplerOutputs
     ) -> None:
         self.seq_manager.on_step_completed(
             scheduler_output.scheduled_seq_metadata_list, sampler_outputs
@@ -203,7 +203,7 @@ class BaseWorker:
     @torch.inference_mode()
     def execute_model(
         self,
-        scheduler_output: SchedulerOutput,
+        scheduler_output: SchedulerOutputs,
     ) -> Optional[SamplerOutputs]:
         torch.cuda.synchronize()
         batch_stage_start_time = time.time()

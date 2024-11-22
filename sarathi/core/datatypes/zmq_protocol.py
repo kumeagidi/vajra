@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-from sarathi.core.datatypes.scheduler_output import SchedulerOutput
+from sarathi.core.datatypes.scheduler_output import SchedulerOutputs
 from sarathi.core.datatypes.sequence import SamplerOutputs, Sequence
 
 
@@ -15,9 +15,9 @@ class StepInputs:
         pending_step_outputs: A list of tuples of scheduler outputs and sampler outputs
     """
 
-    scheduler_output: SchedulerOutput
+    scheduler_output: SchedulerOutputs
     new_seqs: Optional[List[Sequence]] = None
-    pending_step_outputs: Optional[List[Tuple[SchedulerOutput, SamplerOutputs]]] = None
+    pending_step_outputs: Optional[List[Tuple[SchedulerOutputs, SamplerOutputs]]] = None
 
 
 @dataclass

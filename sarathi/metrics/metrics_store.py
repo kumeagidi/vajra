@@ -13,7 +13,7 @@ import wandb
 
 from sarathi.config import MetricsConfig, ModelConfig, ReplicaConfig
 from sarathi.core.datatypes.request_output import RequestOutput
-from sarathi.core.datatypes.scheduler_output import SchedulerOutput
+from sarathi.core.datatypes.scheduler_output import SchedulerOutputs
 from sarathi.core.datatypes.sequence import Sequence, SequenceMetadata
 from sarathi.logger import init_logger
 from sarathi.metrics.cdf_sketch import CDFSketch
@@ -478,7 +478,7 @@ class MetricsStore:
     def on_batch_stage_end(
         self,
         seq_metadata_list: List[SequenceMetadata],
-        scheduler_output: SchedulerOutput,
+        scheduler_output: SchedulerOutputs,
         tensor_parallel_rank: int,
         pipeline_parallel_rank: int,
         cache_parallel_rank: int,
@@ -509,7 +509,7 @@ class MetricsStore:
     def on_batch_end(
         self,
         seq_metadata_list: List[SequenceMetadata],
-        scheduler_output: SchedulerOutput,
+        scheduler_output: SchedulerOutputs,
         batch_start_time: float,
         batch_end_time: float,
     ) -> None:

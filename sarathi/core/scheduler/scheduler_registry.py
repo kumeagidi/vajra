@@ -2,7 +2,7 @@ from sarathi.config import SchedulerType
 from sarathi.core.scheduler.faster_transformer_scheduler import (
     FasterTransformerScheduler,
 )
-from sarathi.core.scheduler.mnemosyne_scheduler import MnemosyneScheduler
+# from sarathi.core.scheduler.mnemosyne_scheduler import MnemosyneScheduler
 from sarathi.core.scheduler.orca_scheduler import OrcaScheduler
 from sarathi.core.scheduler.sarathi_scheduler import SarathiScheduler
 from sarathi.core.scheduler.simple_chunking_scheduler import SimpleChunkingScheduler
@@ -22,4 +22,4 @@ SchedulerRegistry.register(SchedulerType.ORCA, OrcaScheduler)
 SchedulerRegistry.register(SchedulerType.FASTER_TRANSFORMER, FasterTransformerScheduler)
 SchedulerRegistry.register(SchedulerType.SARATHI, SarathiScheduler)
 SchedulerRegistry.register(SchedulerType.SIMPLE_CHUNKING, SimpleChunkingScheduler)
-SchedulerRegistry.register(SchedulerType.MNEMOSYNE, MnemosyneScheduler)
+# SchedulerRegistry.register(SchedulerType.MNEMOSYNE, MnemosyneScheduler)

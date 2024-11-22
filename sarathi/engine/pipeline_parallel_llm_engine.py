@@ -8,7 +8,7 @@ import zmq
 
 from sarathi.config import SchedulerType, SystemConfig
 from sarathi.core.datatypes.request_output import RequestOutput
-from sarathi.core.datatypes.scheduler_output import SchedulerOutput
+from sarathi.core.datatypes.scheduler_output import SchedulerOutputs
 from sarathi.core.datatypes.sequence import SamplerOutputs, SequenceMetadata
 from sarathi.core.datatypes.zmq_protocol import StepInputs
 from sarathi.engine.base_llm_engine import BaseLLMEngine
@@ -24,7 +24,7 @@ SCHEDULER_LOOP_DELAY = 0.01
 class ScheduleStageOutputs:
     ignored_seqs: List[SequenceMetadata]
     seq_metadata_list: List[SequenceMetadata]
-    scheduler_output: SchedulerOutput
+    scheduler_output: SchedulerOutputs
     start_time: float
 
 
@@ -69,7 +69,7 @@ class PipelineParallelLLMEngine(BaseLLMEngine):
             target=self._scheduler_timer_loop, daemon=True
         )
 
-        self.pending_step_outputs: List[Tuple[SchedulerOutput, SamplerOutputs]] = []
+        self.pending_step_outputs: List[Tuple[SchedulerOutputs, SamplerOutputs]] = []
 
     def _init_zmq_sockets(self):
         super()._init_zmq_sockets()
@@ -106,14 +106,14 @@ class PipelineParallelLLMEngine(BaseLLMEngine):
 
     @synchronized
     def _append_pending_step_output(
-        self, scheduler_output: SchedulerOutput, sampler_outputs: SamplerOutputs
+        self, scheduler_output: SchedulerOutputs, sampler_outputs: SamplerOutputs
     ) -> None:
         self.pending_step_outputs.append((scheduler_output, sampler_outputs))
 
     @synchronized
     def _get_pending_step_outputs(
         self,
-    ) -> List[Tuple[SchedulerOutput, SamplerOutputs]]:
+    ) -> List[Tuple[SchedulerOutputs, SamplerOutputs]]:
         pending_step_outputs = self.pending_step_outputs
         self.pending_step_outputs = []
         return pending_step_outputs

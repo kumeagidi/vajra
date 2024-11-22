@@ -5,7 +5,7 @@ import torch.distributed
 
 from sarathi.config import SchedulerType, SystemConfig
 from sarathi.core.datatypes.sampling_params import SamplingParams
-from sarathi.core.datatypes.scheduler_output import SchedulerOutput
+from sarathi.core.datatypes.scheduler_output import SchedulerOutputs
 from sarathi.core.datatypes.sequence import SamplerOutputs, Sequence, SequenceMetadata
 from sarathi.logger import init_logger
 from sarathi.metrics.constants import CpuOperationMetrics
@@ -287,7 +287,7 @@ class ModelRunner:
 
     def run(
         self,
-        scheduler_output: SchedulerOutput,
+        scheduler_output: SchedulerOutputs,
         seq_metadata_list: List[SequenceMetadata],
         gpu_cache: Optional[List[torch.Tensor]] = None,
     ) -> Optional[SamplerOutputs]:

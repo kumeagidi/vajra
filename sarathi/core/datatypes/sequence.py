@@ -1,6 +1,6 @@
 """Sequence and its related classes."""
 
-from typing import List, Optional,Any
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 import random
 
@@ -10,10 +10,13 @@ from sarathi.core.datatypes.sequence_state import SequenceState
 from sarathi.core.datatypes.sequence_status import SequenceStatus
 
 
+
 @dataclass(order=True)
 class SequenceWithPriority:
+
     priority : float
     seq : Any=field(compare=False)
+
 
 class Sequence:
     """Stores the data, status, and block information of a sequence.
@@ -59,7 +62,8 @@ class Sequence:
         # Used for incremental detokenization
         self.prefix_offset = 0
         self.read_offset = 0
-        # Input + output tokens
+        # TODO(amey): Clean up this code
+        # Input + output tokens -- required only for incremental decoding
         self.tokens: Optional[List[str]] = None
 
         self.state = SequenceState(seq_id, arrival_time, len(prompt_token_ids))
@@ -100,6 +104,7 @@ class Sequence:
         assert self.prompt_tokens_processed <= len(self.prompt_token_ids)
 
         if self.prompt_tokens_processed == len(self.prompt_token_ids):
+            assert self.prompt_stage_processing_finished
             self.prompt_processing_finished = True
             self.state.on_prompt_processing_completed()
 
@@ -135,6 +140,13 @@ class Sequence:
 
     def get_token_ids(self) -> List[int]:
         return self.prompt_token_ids + self.output_token_ids
+
+    def get_last_five_token_ids(self) -> List[int]:
+        if len(self.output_token_ids) >= 5:
+            return self.output_token_ids[-5:]
+
+        num_decode_tokens = 5 - len(self.output_token_ids)
+        return self.prompt_token_ids[-num_decode_tokens:] + self.output_token_ids
 
     def get_num_prompt_tokens_processed(self) -> int:
         return self.prompt_tokens_processed
@@ -179,8 +191,11 @@ class Sequence:
     def is_running(self) -> bool:
         return SequenceStatus.is_running(self.get_status())
 
+    def is_waiting_preempted(self) -> bool:
+        return SequenceStatus.is_waiting_preempted(self.get_status())
+
     def reset_for_recompute(self):
-        self.set_status(SequenceStatus.WAITING)
+        self.set_status(SequenceStatus.WAITING_PREEMPTED)
         self.prompt_tokens_processed = 0
         self.prompt_tokens_stage_processed = 0
         self.prompt_processing_finished = False
@@ -239,9 +254,11 @@ class SequenceScheduleMetadata:
 
     def __init__(
         self,
+        schedule_id: int,
         seq_id: str,
         prompt_chunk_len: int,
     ) -> None:
+        self.schedule_id = schedule_id
         self.seq_id = seq_id
         self.prompt_chunk_len = prompt_chunk_len
 
@@ -266,6 +283,7 @@ class SequenceScheduleMetadata:
     @classmethod
     def from_sequence(
         cls,
+        # schedule_id: int,
         seq: Sequence,
         prompt_chunk_len: Optional[int] = None,
     ) -> "SequenceScheduleMetadata":
@@ -275,12 +293,43 @@ class SequenceScheduleMetadata:
             else:
                 prompt_chunk_len = seq.get_prompt_len()
 
-        return cls(seq_id=seq.seq_id, prompt_chunk_len=prompt_chunk_len)
+        return cls(
+            #schedule_id=schedule_id,
+            seq_id=seq.seq_id,
+            prompt_chunk_len=prompt_chunk_len,
+        )
 
     def __str__(self) -> str:
         return (
-            f"SequenceScheduleMetadata(seq_id={self.seq_id}, "
+            f"SequenceScheduleMetadata(schedule_id={self.schedule_id}, "
+            f"seq_id={self.seq_id}, "
             f"prompt_chunk_len={self.prompt_chunk_len})"
+        )
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+
+class MnemosyneSequenceScheduleMetadata(SequenceScheduleMetadata):
+    def __init__(
+        self,
+        schedule_id: int,
+        seq_id: int,
+        prompt_chunk_len: int,
+        group_block_mapping: Dict[int, int],
+        active_group_ids: List[int],
+    ) -> None:
+        super().__init__(schedule_id, seq_id, prompt_chunk_len)
+        self.group_block_mapping = group_block_mapping
+        self.active_group_ids = active_group_ids
+
+    def __str__(self) -> str:
+        return (
+            f"MnemosyneSequenceScheduleMetadata(schedule_id={self.schedule_id}, "
+            f"seq_id={self.seq_id}, "
+            f"prompt_chunk_len={self.prompt_chunk_len}, "
+            f"group_block_mapping={self.group_block_mapping}, "
+            f"active_group_ids={self.active_group_ids})"
         )
 
     def __repr__(self) -> str:
@@ -297,13 +346,19 @@ class SequenceMetadata:
 
     def __init__(
         self,
+        schedule_id: int,
         seq: Sequence,
         block_table: Optional[List[int]],
         prompt_chunk_len: int,
     ) -> None:
+        self.schedule_id = schedule_id
         self.seq = seq
         self.block_table = block_table
         self.prompt_chunk_len = prompt_chunk_len
+
+    @property
+    def seq_id(self) -> str:
+        return self.seq.seq_id
 
     @property
     def num_prompt_tokens(self) -> int:
@@ -325,12 +380,52 @@ class SequenceMetadata:
 
     def __str__(self) -> str:
         return (
-            f"SequenceMetadata(seq_id={self.seq.seq_id}, "
+            f"SequenceMetadata(schedule_id={self.schedule_id}, "
+            f"seq_id={self.seq.seq_id}, "
             f"prompt_chunk_len={self.prompt_chunk_len})"
         )
 
     def __repr__(self) -> str:
         return self.__str__()
+
+    def __hash__(self) -> int:
+        return hash(self.prompt_chunk_len)
+
+
+class MnemosyneSequenceMetadata(SequenceMetadata):
+    def __init__(
+        self,
+        schedule_id: int,
+        seq: Sequence,
+        block_table: Optional[List[int]],
+        prompt_chunk_len: int,
+        kv_cache_len: int,
+        save_kv_cache: bool,
+        group_ids: List[int],
+    ) -> None:
+        super().__init__(
+            schedule_id,
+            seq,
+            block_table,
+            prompt_chunk_len,
+        )
+        self.group_ids = group_ids
+        self.save_kv_cache = save_kv_cache
+        self.kv_cache_len = kv_cache_len
+
+    def __str__(self) -> str:
+        return (
+            f"MnemosyneSequenceMetadata(schedule_id={self.schedule_id}, "
+            f"seq_id={self.seq.seq_id}, "
+            f"prompt_chunk_len={self.prompt_chunk_len}, "
+            f"kv_cache_len={self.kv_cache_len}, "
+            f"len_block_table={len(self.block_table)}, "
+            f"save_kv_cache={self.save_kv_cache}, "
+            f"group_ids={self.group_ids})"
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.prompt_chunk_len, self.save_kv_cache, tuple(self.group_ids)))
 
 
 class SamplerOutput:
@@ -343,22 +438,32 @@ class SamplerOutput:
 
     def __init__(
         self,
+        schedule_id: int,
         seq_id: str,
         output_token: int,
     ) -> None:
+        self.schedule_id = schedule_id
         self.seq_id = seq_id
         self.output_token = output_token
 
     def __repr__(self) -> str:
         return (
-            f"SamplerOutput(seq_id={self.seq_id}, "
+            f"SamplerOutput(schedule_id={self.schedule_id}, "
+            f"seq_id={self.seq_id}, "
             f"output_token={self.output_token}))"
         )
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SamplerOutput):
             raise NotImplementedError()
-        return self.seq_id == other.seq_id and self.output_token == other.output_token
+        return (
+            self.schedule_id == other.schedule_id
+            and self.seq_id == other.seq_id
+            and self.output_token == other.output_token
+        )
+
+    def __hash__(self) -> int:
+        return hash(self.seq_id)
 
 
 SamplerOutputs = List[SamplerOutput]

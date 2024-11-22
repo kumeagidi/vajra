@@ -6,7 +6,8 @@ requires = [
     "setuptools>=61",
     "torch == 2.4.0",
     "wheel",
-    "flashinfer>=0.0.5"
+    "flashinfer>=0.0.5",
+    "numpy"
 ]
 build-backend = "setuptools.build_meta"
 

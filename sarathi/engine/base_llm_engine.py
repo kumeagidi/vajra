@@ -14,7 +14,7 @@ from sarathi.core.datatypes.request_output import RequestOutput
 from sarathi.core.datatypes.sampling_params import SamplingParams
 from sarathi.core.datatypes.scheduler_output import SchedulerOutputs
 from sarathi.core.datatypes.sequence import SamplerOutputs, Sequence, SequenceMetadata
-from sarathi.core.datatypes.step_inputs import StepInputs
+from sarathi.core.datatypes.zmq_protocol import StepInputs
 from sarathi.core.scheduler.scheduler_registry import SchedulerRegistry
 from sarathi.core.sequence_manager.engine_sequence_manager import EngineSequenceManager
 from sarathi.engine.ray_utils import RayWorker, initialize_cluster, ray

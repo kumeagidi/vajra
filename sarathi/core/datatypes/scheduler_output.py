@@ -3,7 +3,7 @@ from typing import List
 from sarathi.core.datatypes.sequence import Sequence, SequenceScheduleMetadata
 
 
-class SchedulerOutput:
+class SchedulerOutputs:
 
     def __init__(
         self,
@@ -11,7 +11,6 @@ class SchedulerOutput:
         ignored_seq_ids: List[str],
         preempted_seq_ids: List[str],
         scheduled_seq_metadata_list: List[SequenceScheduleMetadata],
-        skip_model_execution: bool = False,
     ) -> None:
         self.id = id
         self.ignored_seq_ids = ignored_seq_ids
@@ -29,7 +28,6 @@ class SchedulerOutput:
         self.num_batched_tokens = sum(
             metadata.num_tokens for metadata in scheduled_seq_metadata_list
         )
-        self.skip_model_execution = skip_model_execution
 
     def is_empty(self) -> bool:
         # NOTE: We do not consider the ignored sequence groups.
@@ -48,7 +46,7 @@ class SchedulerOutput:
 
     def __repr__(self) -> str:
         return (
-            f"SchedulerOutput(id={self.id}, "
+            f"SchedulerOutputs(id={self.id}, "
             f"ignored_seq_ids={self.ignored_seq_ids}, "
             f"preempted_seq_ids={self.preempted_seq_ids}, "
             f"scheduled_seq_metadata_list={self.scheduled_seq_metadata_list})"

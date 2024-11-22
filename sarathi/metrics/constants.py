@@ -41,6 +41,7 @@ class CpuOperationMetrics(enum.Enum):
     MODEL_EXECUTION_E2E_DECODE = "model_execution_e2e_decode"
     MODEL_EXECUTION_E2E_PREFILL = "model_execution_e2e_prefill"
     MODEL_EXECUTION_E2E_MIXED = "model_execution_e2e_mixed"
+    PROCESS_MODEL_OUTPUTS = "process_model_outputs"
     WORKER_ON_SCHEDULE_HANDLING = "worker_on_schedule_handling"
     WORKER_ON_STEP_COMPLETE_HANDLING = "worker_on_step_complete_handling"
     ENGINE_ON_SCHEDULE_HANDLING = "engine_on_schedule_handling"

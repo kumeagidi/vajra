@@ -276,9 +276,29 @@ class SarathiSchedulerConfig(BaseSchedulerConfig):
     chunk_size: int = field(
         default=512, metadata={"help": "Size of each chunk for Sarathi scheduler."}
     )
+    enable_dynamic_chunking_schedule: bool = field(
+        default=False, metadata={"help": "Enable dynamic chunking schedule."}
+    )
+    low_chunk_size: Optional[int] = field(
+        default=None, metadata={"help": "Minimum chunk size for dynamic chunking."}
+    )
+    high_chunk_size: Optional[int] = field(
+        default=None, metadata={"help": "Maximum chunk size for dynamic chunking."}
+    )
+    chunk_schedule_max_tokens: Optional[int] = field(
+        default=None,
+        metadata={"help": "Maximum number of tokens for chunk scheduling."},
+    )
+    chunk_schedule_stages: Optional[int] = field(
+        default=None, metadata={"help": "Number of stages for chunk scheduling."}
+    )
 
     def get_max_num_batched_tokens(self, max_model_len: int):
-        return self.chunk_size
+        # Sarathi never schedules more than chunk_size tokens in one iteration.
+        if self.enable_dynamic_chunking_schedule:
+            return self.high_chunk_size
+        else:
+            return self.chunk_size
 
     @staticmethod
     def get_type():
@@ -380,6 +400,14 @@ class ReplicaConfig:
 
     def __post_init__(self):
         self.output_dir = f"{self.output_dir}/replica_{self.replica_id}"
+
+    def get_resource_mapping(self, world_size: int):
+        if not self.resource_mapping:
+            self.resource_mapping = [
+                (None, i) for i in range(world_size)  # List of (node_ip, gpu_id)
+            ]
+        return self.resource_mapping
+
 
 
 @dataclass

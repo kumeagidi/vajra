@@ -59,8 +59,8 @@ class BaseScheduler(ABC):
 
         # TODO(zhuohan): Use deque instead of list for better performance.
         # Sequence groups in the WAITING state.
-        # self.waiting : PriorityQueue = PriorityQueue()
-        self.waiting : PriorityQueue = waiting_queue
+        self.waiting : PriorityQueue = PriorityQueue()
+        # self.waiting : PriorityQueue = waiting_queue
         # Sequence groups in the RUNNING state.
         self.running: List[Sequence] = []
 
