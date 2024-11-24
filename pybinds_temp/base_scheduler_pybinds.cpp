@@ -1,4 +1,4 @@
-"""
+/*
 from <module_name>.<submodule_name> import <Python_class_name>
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -10,17 +10,17 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     pybind11::class_<<C++_class>, std::shared_ptr<<C++_class>>>(submodule, '<Python_class_name>')
 
         // inside init<> add the types of arguments for python init (use smart pointers for other classes)
-        .def(pybind11::init<>() /* Add constructors here */)
+        .def(pybind11::init<>()  Add constructors here )
 
         // Create instance level variables
         .def_readwrite('name of variable', &C++_Class::<Name of Variable>);
 
         // left side is python function name and right side is C++ function name (including C++ class since indentation is not necessary)
         // include py::arg('argument_name') = argument_value if the function has default arguments
-        .def('<method_name>'', &<C++_class>::<method_name> /* Add methods here */)
+        .def('<method_name>'', &<C++_class>::<method_name>  Add methods here )
         ;
 }
-"""
+*/
 #include "base_scheduler.h"
 
 PYBIND11_MODULE(Scheduler, m) {
