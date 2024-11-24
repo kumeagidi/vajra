@@ -189,6 +189,28 @@ define_gpu_extension_target(
   LIBRARIES _kernels_common Flashinfer::Flashinfer
   WITH_SOABI)
 
+
+
+set(PYBIND11_FINDPYTHON ON)
+find_package(pybind11 CONFIG REQUIRED)  
+#
+set(VAJRA_BASE_SCHEDULER_EXT_SRC
+"pybinds_temp/base_scheduler_pybinds.cpp"
+"pybinds_temp/base_scheduler.cpp"
+"pybinds_temp/scheduler_outputs_pybinds.cpp"
+"pybinds_temp/scheduler_outputs.cpp"
+)
+#
+
+
+# Python_add_library(_base_scheduler_C MODULE VAJRA_BASE_SCHEDULER_EXT_SRC)
+# target_link_libraries(_base_scheduler_C PUBLIC pybind11::module)
+
+# install()
+pybind11_add_module(_base_scheduler_C ${VAJRA_BASE_SCHEDULER_EXT_SRC})
+install(TARGETS _base_scheduler_C DESTINATION .)
+
+
 #
 # Add the `default` target which detects which extensions should be
 # built based on platform/architecture.  This is the same logic that
@@ -205,3 +227,4 @@ define_gpu_extension_target(
 add_custom_target(default)
 add_dependencies(default _kernels_C)
 add_dependencies(default _model_executor_C)
+add_dependencies(default _base_scheduler_C)

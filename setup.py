@@ -213,6 +213,8 @@ ext_modules = []
 
 ext_modules.append(CMakeExtension(name="sarathi._kernels_C"))
 ext_modules.append(CMakeExtension(name="sarathi._model_executor_C"))
+ext_modules.append(CMakeExtension(name="sarathi._base_scheduler_C"))
+
 
 package_data = {
     "sarathi": ["model_executor/layers/fused_moe/configs/*.json"]

@@ -28,3 +28,4 @@ PYBIND11_MODULE(datatypes, m) {
         .def("has_no_output", &sarathi::SchedulerOutputs::has_no_output);
         .def("seq_ids", &sarathi::SchedulerOutputs::seq_ids);
         //.def("__repr__", &sarathi::SchedulerOutputs::__repr__);
+}

@@ -1,32 +1,9 @@
-/*
-from <module_name>.<submodule_name> import <Python_class_name>
-
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    // submodule and <submodule_name> should be the same for clarity
-    pybind11::module submodule = m.def_submodule('<submodule_name>'', '<submodule_description>');
-
-    // Define the C++ class and bind it to a Python class
-    // --------- class type -------, ----ensures smart pointer----(submodule (from above one you want to add to), --name of class in python--)
-    pybind11::class_<<C++_class>, std::shared_ptr<<C++_class>>>(submodule, '<Python_class_name>')
-
-        // inside init<> add the types of arguments for python init (use smart pointers for other classes)
-        .def(pybind11::init<>()  Add constructors here )
-
-        // Create instance level variables
-        .def_readwrite('name of variable', &C++_Class::<Name of Variable>);
-
-        // left side is python function name and right side is C++ function name (including C++ class since indentation is not necessary)
-        // include py::arg('argument_name') = argument_value if the function has default arguments
-        .def('<method_name>'', &<C++_class>::<method_name>  Add methods here )
-        ;
-}
-*/
 #include "base_scheduler.h"
 
 PYBIND11_MODULE(Scheduler, m) {
     //Create class named BaseScheduler
     pybind11::module BaseScheduler = m.def_submodule("BaseScheduler", "Base scheduler for all models");
-
+bnlkjbkjnm,
     //Create pybind from BaseScheduler to class that can be refered to in Python with name "BaseScheduler"
     pybind11::class_<sarathi::BaseScheduler, std::shared_ptr<sarathi::BaseScheduler>>(BaseScheduler, "BaseScheduler")
         .def(pybind11::init<
@@ -74,3 +51,4 @@ PYBIND11_MODULE(Scheduler, m) {
         .def("_append_slot", &sarathi::BaseScheduler::_append_slot);
         .def("_preempt", &sarathi::BaseScheduler::_preempt);
         .def("_check_request_prompt_length", &sarathi::BaseScheduler::_check_request_prompt_length);
+}
