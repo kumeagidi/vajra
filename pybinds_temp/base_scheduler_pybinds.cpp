@@ -1,4 +1,3 @@
-
 """
 from <module_name>.<submodule_name> import <Python_class_name>
 
@@ -22,8 +21,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         ;
 }
 """
+#include "base_scheduler.h"
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+PYBIND11_MODULE(Scheduler, m) {
     //Create class named BaseScheduler
     pybind11::module BaseScheduler = m.def_submodule("BaseScheduler", "Base scheduler for all models");
 

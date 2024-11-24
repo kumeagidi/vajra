@@ -1,3 +1,5 @@
+#include "scheduler_outputs.h"
+
 PYBIND11_MODULE(datatypes, m) {
     //Create class named SchedulerOutputs
     pybind11::module SchedulerOutputs = m.def_submodule("SchedulerOutputs", "Outputs for scheduler");
@@ -7,7 +9,7 @@ PYBIND11_MODULE(datatypes, m) {
         .def(pybind11::init<
                         int,
                         std::vector<pybind11::str>,
-                        std::vector<pybind11::str>
+                        std::vector<pybind11::str>,
                         std::vector<pybind11::object>
                         >())
 
@@ -25,4 +27,4 @@ PYBIND11_MODULE(datatypes, m) {
         .def("is_empty", &sarathi::SchedulerOutputs::is_empty);
         .def("has_no_output", &sarathi::SchedulerOutputs::has_no_output);
         .def("seq_ids", &sarathi::SchedulerOutputs::seq_ids);
-        .def("__repr__", &sarathi::SchedulerOutputs::__repr__);
+        //.def("__repr__", &sarathi::SchedulerOutputs::__repr__);

@@ -6,7 +6,7 @@ namespace sarathi
 class SchedulerOutputs
 {
     public:
-        BaseScheduler(
+        SchedulerOutputs(
             int id,
             std::vector<pybind11::str> ignored_seq_ids,
             std::vector<pybind11::str> preempted_seq_ids,
@@ -15,14 +15,15 @@ class SchedulerOutputs
 
         //class methods here
         bool is_empty();
-        bool has_no_output;
-        std::vector<py::str> seq_ids;
-        py::str __repr__;
+        bool has_no_output();
+        std::vector<py::str> seq_ids();
+        //py::str __repr__();
 
     private:
-        pybind11::object policy;
-        pybind11::object block_manager;
-        pybind11::object max_model_len;
+        std::vector<int> promptChunkLens;
+        int numBatchedPromptTokens;
+        int numBatchedOutputTokens;
+        int numBatchedTokens;
 };
 
 

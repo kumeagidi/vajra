@@ -90,9 +90,17 @@ void BaseScheduler::add_seq_to_seq_manager(const pybind11::object& seq)
 pybind11::object& BaseScheduler::schedule()
 {
     _iteration_id++;
+    std::vector<int> ignored_seq_ids = {};
+    std::vector<int> preempted_seq_ids = {};
+    std::vector<int> scheduled_seq_metadata_list = {};
 
     if (num_running_batches > parallel_config.attr("pipeline_parallel_size")) {
-        return //
+        return SchedulerOutputs(
+            _iteration_id,
+            ignored_seq_ids,
+            preempted_seq_ids,
+            scheduled_seq_metadata_list
+        );
     }
 
     pybind11::object& scheduler_outputs = _schedule()
