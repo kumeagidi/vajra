@@ -3,7 +3,7 @@
 #include <queue>
 #include <vector>
 
-using namespace Sarathi;
+using namespace sarathi;
 
 SchedulerOutputs::SchedulerOutputs(
         int id,
@@ -16,21 +16,20 @@ SchedulerOutputs::SchedulerOutputs(
     preempted_seq_ids(preempted_seq_ids)
 {
     std::sort(
-        scheduledSeqMetadataList.begin(), scheduledSeqMetadataList.end(), [](const py::object& a, const py::object& b) {
-            return a.attr("is_prompt").cast<bool>() > b.attr("is_prompt").cast<bool>();
+        scheduled_seq_metadata_list.begin(), scheduled_seq_metadata_list.end(), [](const pybind11::object& a, const pybind11::object& b) {
+            return pybind11::cast<bool> (a.attr("is_prompt")) > pybind11::cast<bool> (b.attr("is_prompt"));
         }
     );
     this->scheduled_seq_metadata_list = scheduled_seq_metadata_list;
 
+
     for (const pybind11::object& metadata : scheduled_seq_metadata_list) {
-        prompt_chunk_lens.push_back(metadata.attr("num_prompt_tokens"));
-        num_batched_prompt_tokens += metadata.attr("num_prompt_tokens");
-        num_batched_output_tokens += metadata.attr("num_output_tokens");
-        num_batched_tokens += metadata.attr("num_tokens")
+        num_prompt_tokens = pybind11::cast<int> (metadata.attr("num_prompt_tokens"));
+        prompt_chunk_lens.push_back(num_prompt_tokens);
+        num_batched_prompt_tokens += num_prompt_tokens;
+        num_batched_output_tokens += pybind11::cast<int> (metadata.attr("num_output_tokens"));
+        num_batched_tokens += pybind11::cast<int> (metadata.attr("num_tokens"));
     }
-
-    num_batched_prompt_tokens = std::accumulate(prompt_chunk_lens.begin(), prompt_chunk_lens.end(), 0);
-
 }
 
 bool SchedulerOutputs::is_empty() {
@@ -41,8 +40,8 @@ bool SchedulerOutputs::has_no_output() {
     return scheduled_seq_metadata_list.empty() && ignored_seq_ids.empty() && preempted_seq_ids.empty();
 }
 
-std::vector<py::str> SchedulerOutputs::seq_ids() {
-    std::vector<std::string> ids;
+std::vector<pybind11::str> SchedulerOutputs::seq_ids() {
+    std::vector<pybind11::str> ids;
     for (const pybind11::object& metadata : scheduled_seq_metadata_list) {
         ids.push_back(metadata.attr("seq_id"));
     }
@@ -50,5 +49,6 @@ std::vector<py::str> SchedulerOutputs::seq_ids() {
 }
 
 //py::str SchedulerOutputs::__repr__() {
-    
+    // We can deal w this later 
+//    return "";
 //}

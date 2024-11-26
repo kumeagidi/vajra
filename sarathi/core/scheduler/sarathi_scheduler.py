@@ -17,12 +17,12 @@ from sarathi.core.block_space_manager.sarathi_block_space_manager import (
 from sarathi.core.datatypes.scheduler_output import SchedulerOutputs
 from sarathi.core.datatypes.sequence import Sequence, SequenceScheduleMetadata, SequenceWithPriority
 from sarathi.core.sequence_manager.engine_sequence_manager import EngineSequenceManager
-from sarathi.core.scheduler.base_scheduler import BaseScheduler
+#from sarathi.core.scheduler.base_scheduler import BaseScheduler
 from sarathi.logger import init_logger
 from sarathi.metrics.metrics_store import MetricsStore
 
 logger = init_logger(__name__)
-
+from sarathi._base_scheduler_C.BaseScheduler import BaseScheduler
 
 class SarathiScheduler(BaseScheduler):
 

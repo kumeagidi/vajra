@@ -29,6 +29,7 @@ set(HIP_SUPPORTED_ARCHS "gfx908;gfx90a;gfx942;gfx1100")
 # requirements.txt files and should be kept consistent.  The ROCm torch
 # versions are derived from Dockerfile.rocm
 #
+
 set(TORCH_SUPPORTED_VERSION_CUDA "2.1.2")
 
 #
@@ -190,7 +191,7 @@ define_gpu_extension_target(
   WITH_SOABI)
 
 
-
+#####
 set(PYBIND11_FINDPYTHON ON)
 find_package(pybind11 CONFIG REQUIRED)  
 #
@@ -199,18 +200,22 @@ set(VAJRA_BASE_SCHEDULER_EXT_SRC
 "pybinds_temp/base_scheduler.cpp"
 "pybinds_temp/scheduler_outputs_pybinds.cpp"
 "pybinds_temp/scheduler_outputs.cpp"
+"pybinds_temp/sequence_status.cpp"
+"pybinds_temp/sequence_status_pybinds.cpp"
 )
 #
 
 
 # Python_add_library(_base_scheduler_C MODULE VAJRA_BASE_SCHEDULER_EXT_SRC)
-# target_link_libraries(_base_scheduler_C PUBLIC pybind11::module)
+
 
 # install()
 pybind11_add_module(_base_scheduler_C ${VAJRA_BASE_SCHEDULER_EXT_SRC})
+target_link_libraries(_base_scheduler_C PUBLIC pybind11::module pybind11::embed)
 install(TARGETS _base_scheduler_C DESTINATION .)
 
 
+####
 #
 # Add the `default` target which detects which extensions should be
 # built based on platform/architecture.  This is the same logic that
