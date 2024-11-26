@@ -2,6 +2,8 @@
 #define BASE_SCHEDULER_H
 #include <pybind11/pybind11.h>
 #include "scheduler_outputs.h"
+#include "sequence_with_priority.h"
+#include <queue>
 //#include "csrc/commons/Logging.h"
 
 namespace sarathi
@@ -50,7 +52,7 @@ class BaseScheduler
         int _iteration_id;
         pybind11::object replica_seq_manager;
         std::unordered_set<int> seq_seen;
-        pybind11::object waiting;
+        std::priority_queue<sarathi::SequenceWithPriority, std::vector<sarathi::SequenceWithPriority>, std::greater<sarathi::SequenceWithPriority>> waiting;
         int num_running_batches; 
         std::vector<pybind11::object> new_seqs;
         std::vector<pybind11::object> running;

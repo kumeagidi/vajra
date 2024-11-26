@@ -205,10 +205,6 @@ set(VAJRA_BASE_SCHEDULER_EXT_SRC
 )
 #
 
-
-# Python_add_library(_base_scheduler_C MODULE VAJRA_BASE_SCHEDULER_EXT_SRC)
-
-
 # install()
 pybind11_add_module(_base_scheduler_C ${VAJRA_BASE_SCHEDULER_EXT_SRC})
 target_link_libraries(_base_scheduler_C PUBLIC pybind11::module pybind11::embed)

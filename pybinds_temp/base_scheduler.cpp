@@ -1,5 +1,6 @@
 #include "base_scheduler.h"
 #include "scheduler_outputs.h"
+#include "sequence_with_priority.h"
 #include "sequence_status.h"
 #include <unordered_set>
 #include <queue>
@@ -24,7 +25,7 @@ BaseScheduler::BaseScheduler(
     _iteration_id(-1),
     replica_seq_manager(replica_seq_manager),
     seq_seen(std::unordered_set<int>()),
-    waiting(pybind11::object()),
+    waiting(),
     num_running_batches(0), 
     new_seqs(std::vector<pybind11::object>()),
     running(std::vector<pybind11::object>())
@@ -52,18 +53,19 @@ void BaseScheduler::reset_state()
 
 void BaseScheduler::add_seq(pybind11::object& seq)
 {
-    pybind11::object wrapped_seq = seq.attr("create_sequence_with_priority")(seq);
-    waiting.attr("put")(wrapped_seq);
+    float arrived_at = seq.attr("arrived_at")().cast<float>();
+    SequenceWithPriority seq_with_priority = SequenceWithPriority(arrived_at, seq);
+    waiting.push(seq_with_priority);
 }
 
 bool BaseScheduler::has_unfinished_seqs()
 {
-    return pybind11::cast<int>(waiting.attr("qsize")()) > 0 || !running.empty();
+    return waiting.size() > 0 || !running.empty();
 }
 
 int BaseScheduler::get_num_unfinished_seqs()
 {
-    return pybind11::cast<int>(waiting.attr("qsize")()) + running.size();
+    return waiting.size() + running.size();
 }
 
 // void _schedule() {}
@@ -166,7 +168,9 @@ bool BaseScheduler::_check_request_prompt_length(pybind11::object& seq)
 {
     if (pybind11::cast<int> (seq.attr("get_len")()) > prompt_limit) {
         seq.attr("set_status")(sarathi::SequenceStatus::Status::FINISHED_STOPPED);
-        waiting.attr("get")(false);
+        if (!waiting.empty()) {
+            waiting.pop();
+        }
 
         return false;
     }
