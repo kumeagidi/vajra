@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include <queue>
 #include <vector>
+#include <iostream>
 
 using namespace sarathi;
 
@@ -30,12 +31,12 @@ BaseScheduler::BaseScheduler(
     new_seqs(std::vector<pybind11::object>()),
     running(std::vector<pybind11::object>())
 {
-    pybind11::module_ policy_module = pybind11::module_::import("policy");
+    pybind11::module_ policy_module = pybind11::module_::import("sarathi.core.policy");
     pybind11::object PolicyFactory = policy_module.attr("PolicyFactory");
     this->policy = PolicyFactory.attr("get_policy")("fcfs");
 
-    pybind11::module_ block_manager_module = pybind11::module_::import("block_space_manager_registry");
-    pybind11::object BlockSpaceManagerRegistry = policy_module.attr("BlockSpaceManagerRegistry");
+    pybind11::module_ block_manager_module = pybind11::module_::import("sarathi.core.block_space_manager.block_space_manager_registry");
+    pybind11::object BlockSpaceManagerRegistry = block_manager_module.attr("BlockSpaceManagerRegistry");
     this->block_manager = BlockSpaceManagerRegistry.attr("get")(
         scheduler_config.attr("get_type")(),
         cache_config.attr("block_size"),
@@ -53,9 +54,16 @@ void BaseScheduler::reset_state()
 
 void BaseScheduler::add_seq(pybind11::object& seq)
 {
+<<<<<<< HEAD
     float arrived_at = seq.attr("arrived_at")().cast<float>();
     SequenceWithPriority seq_with_priority = SequenceWithPriority(arrived_at, seq);
     waiting.push(seq_with_priority);
+=======
+    std::cout << "Testing 123" << "\n";
+    seq.attr("test")();
+    pybind11::object wrapped_seq = seq.attr("create_sequence_with_priority")(seq);
+    waiting.attr("put")(wrapped_seq);
+>>>>>>> 19deb6a75eef7e3145408ccd7620c385093ef37a
 }
 
 bool BaseScheduler::has_unfinished_seqs()
