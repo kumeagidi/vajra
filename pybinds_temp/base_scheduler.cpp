@@ -54,16 +54,9 @@ void BaseScheduler::reset_state()
 
 void BaseScheduler::add_seq(pybind11::object& seq)
 {
-<<<<<<< HEAD
     float arrived_at = seq.attr("arrived_at")().cast<float>();
     SequenceWithPriority seq_with_priority = SequenceWithPriority(arrived_at, seq);
     waiting.push(seq_with_priority);
-=======
-    std::cout << "Testing 123" << "\n";
-    seq.attr("test")();
-    pybind11::object wrapped_seq = seq.attr("create_sequence_with_priority")(seq);
-    waiting.attr("put")(wrapped_seq);
->>>>>>> 19deb6a75eef7e3145408ccd7620c385093ef37a
 }
 
 bool BaseScheduler::has_unfinished_seqs()
