@@ -1,4 +1,5 @@
 #include "base_scheduler.h"
+#include "sarathi_scheduler.h"
 #include "scheduler_outputs.h"
 
 PYBIND11_MODULE(_base_scheduler_C, m) {
@@ -45,6 +46,29 @@ PYBIND11_MODULE(_base_scheduler_C, m) {
                 .def("_append_slot", &sarathi::BaseScheduler::_append_slot)
                 .def("_preempt", &sarathi::BaseScheduler::_preempt)
                 .def("_check_request_prompt_length", &sarathi::BaseScheduler::_check_request_prompt_length);
+        
+    pybind11::class_<sarathi::SarathiScheduler, std::shared_ptr<sarathi::SarathiScheduler>>(BaseScheduler, "SarathiScheduler")
+        .def(pybind11::init<
+                pybind11::object,  // ModelConfig
+                pybind11::object,  // SarathiSchedulerConfig
+                pybind11::object,  // CacheConfig
+                pybind11::object,  // ParallelConfig
+                pybind11::object,  // PriorityQueue
+                pybind11::object,  // EngineSequenceManager
+                pybind11::object  // MetricStore
+                >())
+                .def_readwrite("chunk_size", &sarathi::SarathiScheduler::chunk_size)
+                .def_readwrite("enable_dynamic_chunking_schedule", &sarathi::SarathiScheduler::enable_dynamic_chunking_schedule)
+                .def_readwrite("low_chunk_size", &sarathi::SarathiScheduler::low_chunk_size)
+                .def_readwrite("high_chunk_size", &sarathi::SarathiScheduler::high_chunk_size)
+                .def_readwrite("chunk_schedule_max_tokens", &sarathi::SarathiScheduler::chunk_schedule_max_tokens)
+                .def_readwrite("chunk_schedule_stages", &sarathi::SarathiScheduler::chunk_schedule_stages)
+                .def_readwrite("._chunk_sizes", &sarathi::SarathiScheduler::._chunk_sizes)
+                .def_readwrite("_tokens_per_stage", &sarathi::SarathiScheduler::_tokens_per_stage)
+                .def("_compute_chunk_size_schedule", &sarathi::SarathiScheduler::_compute_chunk_size_schedule)
+                .def("get_block_space_manager_class", &sarathi::SarathiScheduler::get_block_space_manager_class)
+                .def("_get_seq_next_num_prefill_tokens", &sarathi::SarathiScheduler::_get_seq_next_num_prefill_tokens)
+                .def("_schedule", &sarathi::SarathiScheduler::_schedule);
 
     
     pybind11::class_<sarathi::SequenceWithPriority, std::shared_ptr<sarathi::SequenceWithPriority>>(BaseScheduler, "SequenceWithPriority")

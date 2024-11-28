@@ -104,6 +104,7 @@ class SarathiScheduler(BaseScheduler):
 
     def _schedule(self) -> SchedulerOutputs:
         # Fix the current time.
+        print("----SARATHI SCHEDULE CALLED----")
         now = time.monotonic()
 
         running: List[Sequence] = []

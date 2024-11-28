@@ -26,9 +26,9 @@ class BaseScheduler
         void add_seq(pybind11::object& seq);
         bool has_unfinished_seqs();
         int get_num_unfinished_seqs();
-        // virtual sarathi::SchedulerOutputs _schedule();
+        virtual sarathi::SchedulerOutputs _schedule();
         void add_to_new_seqs(pybind11::object& seq);
-        std::vector<pybind11::object> get_new_seqs(); // could be pybind::list but is a list of Sequences (python objects)
+        std::vector<pybind11::object> get_new_seqs();
         void add_seq_to_seq_manager(pybind11::object& seq);
         sarathi::SchedulerOutputs schedule();
         void free_finished_seqs();
@@ -57,8 +57,6 @@ class BaseScheduler
         std::vector<pybind11::object> new_seqs;
         std::vector<pybind11::object> running;
 };
-
-
 
 //==============================================================================
 } // namespace sarathi

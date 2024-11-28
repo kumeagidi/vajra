@@ -25,6 +25,7 @@ BaseScheduler::BaseScheduler(
     parallel_config(parallel_config),
     _iteration_id(-1),
     replica_seq_manager(replica_seq_manager),
+    prompt_limit(pybind11::cast<int> (model_config.attr("max_model_len"))),
     seq_seen(std::unordered_set<int>()),
     waiting(),
     num_running_batches(0), 
@@ -43,8 +44,6 @@ BaseScheduler::BaseScheduler(
         cache_config.attr("num_gpu_blocks"),
         model_config.attr("max_model_len")
     );
-
-    this->prompt_limit = pybind11::cast<int> (model_config.attr("max_model_len"));  
 }
 
 void BaseScheduler::reset_state()
@@ -112,11 +111,11 @@ sarathi::SchedulerOutputs BaseScheduler::schedule()
     // return scheduler_outputs;
 
     return sarathi::SchedulerOutputs(
-            _iteration_id,
-            ignored_seq_ids,
-            preempted_seq_ids,
-            scheduled_seq_metadata_list
-        );
+        _iteration_id,
+        ignored_seq_ids,
+        preempted_seq_ids,
+        scheduled_seq_metadata_list
+    );
 
 }
 
