@@ -26,7 +26,7 @@ class ModelConfig:
         },
     )
     download_dir: Optional[str] = field(
-        default=None,
+        default="/home/hice1/vgali7/scratch/tmp_dir",
         metadata={
             "help": "Directory to download and load the weights, default to the default cache directory of huggingface."
         },

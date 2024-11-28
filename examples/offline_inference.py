@@ -1,6 +1,16 @@
 import datetime
 from tqdm import tqdm
 from typing import List
+import os
+
+# Get the current working directory
+current_path = os.getcwd()
+
+# Add a relative path to the current directory
+new_path = os.path.join(current_path, "subfolder/holmes.txt")
+
+print(new_path)
+
 
 from sarathi.config import ModelConfig, ParallelConfig, SarathiSchedulerConfig, MetricsConfig, SystemConfig, ReplicaConfig
 from sarathi import LLMEngine, SamplingParams, RequestOutput
@@ -56,7 +66,9 @@ num_prefill_tokens = 256
 num_decode_tokens = 256
 batch_size = 128
 
-prompts = split_text_file("/home/hice1/kagidi6/scratch/smr/vajra/examples/holmes.txt", prompt_length=num_prefill_tokens, num_prompts=num_prompts)  
+current_path = os.getcwd()
+txt_file = os.path.join(current_path, "examples/holmes.txt")
+prompts = split_text_file(txt_file, prompt_length=num_prefill_tokens, num_prompts=num_prompts)  
 # prompts = [
 #     "",
 # ]

@@ -375,12 +375,6 @@ class BaseLLMEngine:
         self.scheduler.add_seq(seq)
         self.metrics_store.on_request_arrival(seq)
 
-    def add_seq(self, seq : Sequence):
-        self.seq_manager.add_seq(seq)
-
-        self._append_new_seq(copy.deepcopy(seq))
-        self.scheduler.add_seq(seq)
-        self.metrics_store.on_request_arrival(seq)
 
     @synchronized
     def _append_new_seq(self, seq: Sequence) -> None:

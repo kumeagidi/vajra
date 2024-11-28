@@ -1,4 +1,4 @@
-#include "SequenceWithPriority.h"
+#include "sequence_with_priority.h"
 
 using namespace sarathi;
 

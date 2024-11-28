@@ -55,4 +55,4 @@ def initialize_cluster(
             "Ray is not installed. Please install Ray to use distributed " "serving."
         )
     # Connect to a ray cluster.
-    ray.init(address=ray_address, ignore_reinit_error=True)
+    ray.init(address=ray_address, _temp_dir="/home/hice1/vgali7/scratch/tmp_dir", ignore_reinit_error=True)
