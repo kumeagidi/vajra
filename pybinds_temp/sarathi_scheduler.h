@@ -19,7 +19,7 @@ class SarathiScheduler : BaseScheduler
             pybind11::object parallel_config,
             pybind11::object waiting_queue,
             pybind11::object replica_seq_manager,
-            pybind11::object metric_store
+            pybind11::object metrics_store
         );
 
         //class methods here
@@ -34,7 +34,7 @@ class SarathiScheduler : BaseScheduler
         int high_chunk_size;
         int chunk_schedule_max_tokens;
         int chunk_schedule_stages;
-        std::vector<int> ._chunk_sizes;
+        std::vector<int> _chunk_sizes;
         int _tokens_per_stage;
 };
 

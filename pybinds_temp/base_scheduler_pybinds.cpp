@@ -17,7 +17,7 @@ PYBIND11_MODULE(_base_scheduler_C, m) {
                 pybind11::object,  // EngineSequenceManager
                 pybind11::object  // MetricStore
                 >())
-                .def_readwrite("metric_store", &sarathi::BaseScheduler::metric_store)
+                .def_readwrite("metrics_store", &sarathi::BaseScheduler::metrics_store)
                 .def_readwrite("model_config", &sarathi::BaseScheduler::model_config)
                 .def_readwrite("scheduler_config", &sarathi::BaseScheduler::scheduler_config)
                 .def_readwrite("cache_config", &sarathi::BaseScheduler::cache_config)
@@ -63,7 +63,7 @@ PYBIND11_MODULE(_base_scheduler_C, m) {
                 .def_readwrite("high_chunk_size", &sarathi::SarathiScheduler::high_chunk_size)
                 .def_readwrite("chunk_schedule_max_tokens", &sarathi::SarathiScheduler::chunk_schedule_max_tokens)
                 .def_readwrite("chunk_schedule_stages", &sarathi::SarathiScheduler::chunk_schedule_stages)
-                .def_readwrite("._chunk_sizes", &sarathi::SarathiScheduler::._chunk_sizes)
+                .def_readwrite("._chunk_sizes", &sarathi::SarathiScheduler::_chunk_sizes)
                 .def_readwrite("_tokens_per_stage", &sarathi::SarathiScheduler::_tokens_per_stage)
                 .def("_compute_chunk_size_schedule", &sarathi::SarathiScheduler::_compute_chunk_size_schedule)
                 .def("get_block_space_manager_class", &sarathi::SarathiScheduler::get_block_space_manager_class)

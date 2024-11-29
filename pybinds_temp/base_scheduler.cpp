@@ -16,9 +16,9 @@ BaseScheduler::BaseScheduler(
     pybind11::object parallel_config,
     pybind11::object waiting_queue,
     pybind11::object replica_seq_manager,
-    pybind11::object metric_store
+    pybind11::object metrics_store
 ) :
-    metric_store(metric_store),
+    metrics_store(metrics_store),
     model_config(model_config),
     scheduler_config(scheduler_config),
     cache_config(cache_config),
@@ -30,7 +30,7 @@ BaseScheduler::BaseScheduler(
     waiting(),
     num_running_batches(0), 
     new_seqs(std::vector<pybind11::object>()),
-    running(std::vector<pybind11::object>())
+    running(std::deque<pybind11::object>())
 {
     pybind11::module_ policy_module = pybind11::module_::import("sarathi.core.policy");
     pybind11::object PolicyFactory = policy_module.attr("PolicyFactory");
@@ -126,7 +126,7 @@ void BaseScheduler::free_finished_seqs()
             seq.attr("_free_seq")();
         }
     }
-    std::vector<pybind11::object> new_running;
+    std::deque<pybind11::object> new_running;
     for (pybind11::object& seq : running) {
         if (!seq.attr("is_finished")()) {
             new_running.push_back(seq);

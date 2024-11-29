@@ -18,7 +18,7 @@ class BaseScheduler
             pybind11::object parallel_config,
             pybind11::object waiting_queue,
             pybind11::object replica_seq_manager,
-            pybind11::object metric_store
+            pybind11::object metrics_store
         );
 
         //class methods here
@@ -44,7 +44,7 @@ class BaseScheduler
         int prompt_limit;
         pybind11::object max_model_len;
 
-        pybind11::object metric_store;
+        pybind11::object metrics_store;
         pybind11::object model_config;
         pybind11::object scheduler_config;
         pybind11::object cache_config;
@@ -55,7 +55,7 @@ class BaseScheduler
         std::priority_queue<sarathi::SequenceWithPriority, std::vector<sarathi::SequenceWithPriority>, std::greater<sarathi::SequenceWithPriority>> waiting;
         int num_running_batches; 
         std::vector<pybind11::object> new_seqs;
-        std::vector<pybind11::object> running;
+        std::deque<pybind11::object> running;
 };
 
 //==============================================================================
