@@ -9,7 +9,7 @@
 
 namespace sarathi
 {
-class SarathiScheduler : BaseScheduler
+class SarathiScheduler : public BaseScheduler
 {
     public:
         SarathiScheduler(
@@ -23,9 +23,9 @@ class SarathiScheduler : BaseScheduler
         );
 
         //class methods here
-        int _compute_chunk_size_schedule();
+        std::vector<int> _compute_chunk_size_schedule();
         pybind11::object get_block_space_manager_class();
-        int _get_seq_next_num_prefill_tokens(pybind11::object seq, int num_batched_tokens);
+        int _get_seq_next_num_prefill_tokens(pybind11::object& seq, int num_batched_tokens);
         SchedulerOutputs _schedule() override;
 
         int chunk_size;

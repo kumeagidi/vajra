@@ -68,8 +68,6 @@ int BaseScheduler::get_num_unfinished_seqs()
     return waiting.size() + running.size();
 }
 
-// void _schedule() {}
-
 void BaseScheduler::add_to_new_seqs(pybind11::object& seq)
 {
     new_seqs.push_back(seq);
@@ -103,20 +101,12 @@ sarathi::SchedulerOutputs BaseScheduler::schedule()
         );
     }
 
-    //sarathi::SchedulerOutputs scheduler_outputs = _schedule();
+    sarathi::SchedulerOutputs scheduler_outputs = _schedule();
 
-    // if (!scheduler_outputs.is_empty()) {
-    //     num_running_batches++;
-    // }
-    // return scheduler_outputs;
-
-    return sarathi::SchedulerOutputs(
-        _iteration_id,
-        ignored_seq_ids,
-        preempted_seq_ids,
-        scheduled_seq_metadata_list
-    );
-
+     if (!scheduler_outputs.is_empty()) {
+         num_running_batches++;
+     }
+     return scheduler_outputs;
 }
 
 void BaseScheduler::free_finished_seqs()

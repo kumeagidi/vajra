@@ -26,7 +26,6 @@ class BaseScheduler
         void add_seq(pybind11::object& seq);
         bool has_unfinished_seqs();
         int get_num_unfinished_seqs();
-        virtual sarathi::SchedulerOutputs _schedule();
         void add_to_new_seqs(pybind11::object& seq);
         std::vector<pybind11::object> get_new_seqs();
         void add_seq_to_seq_manager(pybind11::object& seq);
@@ -38,6 +37,7 @@ class BaseScheduler
         void _append_slot(pybind11::object& seq);
         void _preempt(pybind11::object& seq);
         bool _check_request_prompt_length(pybind11::object& seq);
+        virtual sarathi::SchedulerOutputs _schedule();
 
         pybind11::object policy;
         pybind11::object block_manager;

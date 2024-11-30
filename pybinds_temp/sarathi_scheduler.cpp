@@ -1,4 +1,5 @@
 #include "base_scheduler.h"
+#include "sarathi_scheduler.h"
 #include "scheduler_outputs.h"
 #include "sequence_with_priority.h"
 #include <cmath>
@@ -26,27 +27,27 @@ SarathiScheduler::SarathiScheduler(
 ) :
     BaseScheduler(model_config, scheduler_config, cache_config, parallel_config, waiting_queue, replica_seq_manager, metrics_store),
     chunk_size(pybind11::cast<int> (scheduler_config.attr("chunk_size"))),
-    enable_dynamic_chunking_schedule(pybind11::cast<bool> scheduler_config.attr("enable_dynamic_chunking_schedule")),
+    enable_dynamic_chunking_schedule(pybind11::cast<bool> (scheduler_config.attr("enable_dynamic_chunking_schedule"))),
     low_chunk_size(pybind11::cast<int> (scheduler_config.attr("low_chunk_size"))),
     high_chunk_size(pybind11::cast<int> (scheduler_config.attr("high_chunk_size"))),
     chunk_schedule_max_tokens(pybind11::cast<int> (scheduler_config.attr("chunk_schedule_max_tokens"))),
     chunk_schedule_stages(pybind11::cast<int> (scheduler_config.attr("chunk_schedule_stages")))
 {
     if (enable_dynamic_chunking_schedule) {
-        this->_chunk_sizes = _compute_chunk_size_schedule();
-        this->_tokens_per_stage = std::ceil(chunk_schedule_max_tokens / pybind11::cast<float> (chunk_schedule_stages));
+        _chunk_sizes = _compute_chunk_size_schedule();
+        _tokens_per_stage = std::ceil(chunk_schedule_max_tokens / static_cast<float>(chunk_schedule_stages));
     }
 }
 
-std::vector<int> SarathiScheduler::compute_chunk_size_schedule()
+std::vector<int> SarathiScheduler::_compute_chunk_size_schedule()
 {
-    xt::xarray<int32_t> chunk_sizes = xt::linspace<int32_t>(high_chunk_size, low_chunk_size, chunk_schedule_stages);
+    xt::xarray<int> chunk_sizes = xt::linspace<int>(high_chunk_size, low_chunk_size, chunk_schedule_stages);
     chunk_sizes = xt::flip(chunk_sizes, 0);
 
     int round_of_chunk_sizes = std::min(32, low_chunk_size);
     chunk_sizes = xt::round(chunk_sizes / round_of_chunk_sizes) * round_of_chunk_sizes;
     
-    std::vector<int364_t> chunk_sizes_vector(chunk_sizes.shape()[0]);
+    std::vector<int> chunk_sizes_vector(chunk_sizes.shape()[0]);
     std::copy(chunk_sizes.begin(), chunk_sizes.end(), chunk_sizes_vector.begin());
     return chunk_sizes_vector;
 }
@@ -71,24 +72,23 @@ int SarathiScheduler::_get_seq_next_num_prefill_tokens(pybind11::object& seq, in
     return next_num_tokens;
 }
 
-SchedulerOutputs SarathiScheduler::schedule()
+SchedulerOutputs SarathiScheduler::_schedule()
 {
-    float now = py::module_::import("time").attr("monotonic")().cast<float>();
+    float now = pybind11::module_::import("time").attr("monotonic")().cast<float>();
 
-    std::vector<pybind11::object> temp_running;
+    std::deque<pybind11::object> temp_running;
     std::vector<pybind11::str> temp_ignored_seq_ids;
     std::vector<pybind11::str> temp_preempted_seq_ids;
     std::vector<pybind11::object> temp_scheduled_seq_metadata_list;
-    pybind11::object seq_wrapped;
     pybind11::object seq;
+    int next_num_prefill_tokens;
 
     int num_batched_tokens = 0;
 
-    running = policy.attr("sort_by_priority")(now, running).cast<std::vector<pybind11::object>>();
+    running = policy.attr("sort_by_priority")(now, running).cast<std::deque<pybind11::object>>();
 
     std::vector<pybind11::object> running_prefills;
 
-    pybind11::object seq;
     while (!running.empty()) {
         seq = running.front();
         running.pop_front();
@@ -106,10 +106,10 @@ SchedulerOutputs SarathiScheduler::schedule()
                 pybind11::object victim_seq = running.back();
                 running.pop_back();
                 _preempt(victim_seq);
-                temp_preempted_seq_ids.push_back(pybind11::cast<int> (seq.attr("seq_id")));
+                temp_preempted_seq_ids.push_back(pybind11::cast<std::string> (seq.attr("seq_id")));
             } else {
                 _preempt(seq);
-                temp_preempted_seq_ids.push_back(pybind11::cast<int> (seq.attr("seq_id")));
+                temp_preempted_seq_ids.push_back(pybind11::cast<std::string> (seq.attr("seq_id")));
                 loopCompletedNormally = false;
                 break;
             }
@@ -124,8 +124,8 @@ SchedulerOutputs SarathiScheduler::schedule()
             );
         }
 
-        for (pybind11:object& seq: running_prefills) {
-            int next_num_prefill_tokens =  _get_seq_next_num_prefill_tokens(
+        for (pybind11::object& seq: running_prefills) {
+            next_num_prefill_tokens =  _get_seq_next_num_prefill_tokens(
                 seq, num_batched_tokens
             );
 
@@ -136,14 +136,14 @@ SchedulerOutputs SarathiScheduler::schedule()
 
             num_batched_tokens += next_num_prefill_tokens;
             temp_scheduled_seq_metadata_list.push_back(
-                sequence_schedule_metadata.attr("from_sequence")(seq, prompt_chunk_len=next_num_prefill_tokens);
-            )
+                sequence_schedule_metadata.attr("from_sequence")(seq, next_num_prefill_tokens)
+            );
             temp_running.push_back(seq);
         }
 
         while (!waiting.empty()) {
-            seq_wrapped = waiting.top();
-            seq = seq_wrapped.attr("seq");
+            sarathi::SequenceWithPriority seq_wrapped = waiting.top();
+            seq = seq_wrapped.seq;
 
             //not done if (seq.attr("arrival_time") > now) {
                 // break
@@ -172,13 +172,13 @@ SchedulerOutputs SarathiScheduler::schedule()
 
             seq_wrapped = waiting.top();
             waiting.pop();
-            seq = seq_wrapped.attr("seq");
+            seq = seq_wrapped.seq;
             num_batched_tokens += next_num_prefill_tokens;
             temp_scheduled_seq_metadata_list.push_back(
-                sequence_schedule_metadata.attr("from_sequence")(seq, prompt_chunk_len=next_num_prefill_tokens)
+                sequence_schedule_metadata.attr("from_sequence")(seq, next_num_prefill_tokens)
             );
 
-            int seq_id = pybind11::cast<int> (seq.attr("seq_id"))
+            int seq_id = pybind11::cast<int> (seq.attr("seq_id"));
             if (seq_seen.find(seq_id) == seq_seen.end()) {
                 add_seq_to_seq_manager(seq);
                 add_to_new_seqs(seq);  // deepcopy not needed for pybind11 objects
@@ -188,7 +188,7 @@ SchedulerOutputs SarathiScheduler::schedule()
             metrics_store.attr("on_request_arrival")(seq);
             temp_running.push_back(seq);
         }
-        running = temp_running
+        running = temp_running;
 
     }
 
