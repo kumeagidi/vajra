@@ -91,6 +91,7 @@ class BaseBlockSpaceManager(ABC):
         for _ in range(num_initial_blocks):
             block_id = self.gpu_allocator.allocate()
             block_table.append(block_id)
+        print("Allocate: ", seq.seq_id, type(seq.seq_id))
 
         self.block_tables[seq.seq_id] = block_table
 
@@ -100,6 +101,8 @@ class BaseBlockSpaceManager(ABC):
 
     def append_slot(self, seq: Sequence) -> None:
         """Allocate a physical slot for a new token."""
+        print("Append slot: ", seq.seq_id, type(seq.seq_id))
+        print(self.block_tables.keys())
         logical_blocks = seq.logical_token_blocks
         block_table = self.block_tables[seq.seq_id]
 
@@ -114,6 +117,8 @@ class BaseBlockSpaceManager(ABC):
             self.gpu_allocator.free(block)
 
     def free(self, seq: Sequence) -> None:
+        print("free: ", seq.seq_id)
+        
         if seq.seq_id not in self.block_tables:
             # Already freed or haven't been scheduled yet.
             return

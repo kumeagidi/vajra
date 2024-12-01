@@ -92,7 +92,7 @@ sarathi::SchedulerOutputs BaseScheduler::schedule()
     std::vector<pybind11::object> scheduled_seq_metadata_list = {};
     std::cout << " regular schedule 1" << std::endl;
 
-    if (num_running_batches > pybind11::cast<int> (parallel_config.attr("pipeline_parallel_size"))) {
+    if (num_running_batches >= pybind11::cast<int> (parallel_config.attr("pipeline_parallel_size"))) {
         std::cout << " regular schedule 2" << std::endl;
         return sarathi::SchedulerOutputs(
             _iteration_id,
@@ -114,13 +114,14 @@ sarathi::SchedulerOutputs BaseScheduler::schedule()
 void BaseScheduler::free_finished_seqs()
 {
     for (pybind11::object& seq: running) {
-        if (seq.attr("is_finished")()) {
-            seq.attr("_free_seq")();
+        if (pybind11::cast<bool> (seq.attr("is_finished")())) {
+            std::cout << "FREE SEQUENCE CALLED FROM C++ " << pybind11::cast<bool> (seq.attr("is_finished")()) << std::endl;
+            _free_seq(seq);
         }
     }
     std::deque<pybind11::object> new_running;
     for (pybind11::object& seq : running) {
-        if (!seq.attr("is_finished")()) {
+        if (pybind11::cast<bool> (seq.attr("is_finished")()) == false) {
             new_running.push_back(seq);
         }
     } 
@@ -152,19 +153,23 @@ void BaseScheduler::_append_slot(pybind11::object& seq)
 void BaseScheduler::_preempt(pybind11::object& seq)
 {
     //ASSERT(pybind11::cast<int> (seq.attr("is_executing")()));
+    std::cout << "_preempt: trying to preempt" << std::endl;
     _free_seq(seq);
-
+    std::cout << "_preempt: free seq completed " << std::endl;
+    float arrived_at = seq.attr("arrived_at").cast<float>();
+    sarathi::SequenceWithPriority wrapped_seq = SequenceWithPriority(arrived_at, seq);
+    waiting.push(wrapped_seq);
 }
 
 bool BaseScheduler::_check_request_prompt_length(pybind11::object& seq)
 {
     if (pybind11::cast<int> (seq.attr("get_len")()) > prompt_limit) {
+        std::cout << "Too big needs finished ignored" << std::endl;
         pybind11::module_ sequence_status = pybind11::module_::import("sarathi.core.datatypes.sequence_status");
         seq.attr("set_status")(sequence_status.attr("FINISHED_IGNORED"));
         if (!waiting.empty()) {
             waiting.pop();
         }
-
         return false;
     }
     return true;

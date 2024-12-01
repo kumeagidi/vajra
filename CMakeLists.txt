@@ -198,7 +198,6 @@ find_package(pybind11 CONFIG REQUIRED)
 set(VAJRA_BASE_SCHEDULER_EXT_SRC
 "pybinds_temp/base_scheduler_pybinds.cpp"
 "pybinds_temp/base_scheduler.cpp"
-"pybinds_temp/scheduler_outputs_pybinds.cpp"
 "pybinds_temp/scheduler_outputs.cpp"
 "pybinds_temp/sequence_status.cpp"
 "pybinds_temp/sequence_status_pybinds.cpp"

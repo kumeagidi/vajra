@@ -3,27 +3,6 @@
 #include "scheduler_outputs.h"
 #define PYBIND11_DETAILED_ERROR_MESSAGES
 
-// class PyScheduler : public sarathi::BaseScheduler {
-// public:
-
-//     /* Trampoline (need one for each virtual function) */
-//     sarathi::SchedulerOutputs sarathi::BaseScheduler::_schedule() override {
-//         PYBIND11_OVERRIDE_PURE(
-//             sarathi::SchedulerOutputs, /* Return type */
-//             BaseScheduler,      /* Parent class */
-//             _schedule          /* Name of function in C++ (must match Python name) */     /* Argument(s) */
-//         );
-//     }
-//     void sarathi::BaseScheduler::add_to_new_seqs(pybind11::object& seq) override {
-//         PYBIND11_OVERRIDE_PURE(
-//             void, /* Return type */
-//             BaseScheduler,      /* Parent class */
-//             add_to_new_seqs,          /* Name of function in C++ (must match Python name) */
-//             seq      /* Argument(s) */
-//         );
-//     }
-// };
-
 PYBIND11_MODULE(_base_scheduler_C, m) {
     //Create class named BaseScheduler
     pybind11::module BaseScheduler = m.def_submodule("BaseScheduler", "Base scheduler for all models");
@@ -49,6 +28,7 @@ PYBIND11_MODULE(_base_scheduler_C, m) {
             .def("has_unfinished_seqs", &sarathi::BaseScheduler::has_unfinished_seqs)
             .def("get_num_unfinished_seqs", &sarathi::BaseScheduler::get_num_unfinished_seqs)
             .def("add_to_new_seqs", &sarathi::BaseScheduler::add_to_new_seqs)
+            .def("on_step_completed", &sarathi::BaseScheduler::on_step_completed)
             .def("get_new_seqs", &sarathi::BaseScheduler::get_new_seqs)
             .def("add_seq_to_seq_manager", &sarathi::BaseScheduler::add_seq_to_seq_manager)
             .def("schedule", &sarathi::BaseScheduler::schedule)
@@ -114,5 +94,40 @@ PYBIND11_MODULE(_base_scheduler_C, m) {
                         .def_readwrite("num_batched_tokens", &sarathi::SchedulerOutputs::num_batched_tokens)
                         .def("is_empty", &sarathi::SchedulerOutputs::is_empty)
                         .def("has_no_output", &sarathi::SchedulerOutputs::has_no_output)
-                        .def("seq_ids", &sarathi::SchedulerOutputs::seq_ids);
+                        .def("seq_ids", &sarathi::SchedulerOutputs::seq_ids)
+                        .def(pybind11::pickle(
+                            [](const sarathi::SchedulerOutputs &p) { // __getstate__
+                                /* Return a tuple that fully encodes the state of the object */
+                                return pybind11::make_tuple(
+                                    p.id,                          // p.id() represents the id
+                                    p.ignored_seq_ids,              // ignored_seq_ids
+                                    p.preempted_seq_ids,            // preempted_seq_ids
+                                    p.scheduled_seq_metadata_list,  // scheduled_seq_metadata_list
+                                    p.num_prompt_tokens,            // num_prompt_tokens
+                                    p.prompt_chunk_lens,            // prompt_chunk_lens
+                                    p.num_batched_prompt_tokens,    // num_batched_prompt_tokens
+                                    p.num_batched_output_tokens,    // num_batched_output_tokens
+                                    p.num_batched_tokens            // num_batched_tokens
+                                );
+                            },
+                            [](pybind11::tuple t) { // __setstate__
+
+                                /* Create a new C++ instance */
+                                sarathi::SchedulerOutputs p(
+                                    t[0].cast<int>(),
+                                    t[1].cast<std::vector<pybind11::str>>(),
+                                    t[2].cast<std::vector<pybind11::str>>(),
+                                    t[3].cast<std::vector<pybind11::object>>()
+                                );
+
+                                // Manually set derived state (attributes that were computed)
+                                p.num_prompt_tokens = t[4].cast<int>();
+                                p.prompt_chunk_lens = t[5].cast<std::vector<int>>();
+                                p.num_batched_prompt_tokens = t[6].cast<int>();
+                                p.num_batched_output_tokens = t[7].cast<int>();
+                                p.num_batched_tokens = t[8].cast<int>();
+
+                                return p;
+                            }
+                        ));
 }

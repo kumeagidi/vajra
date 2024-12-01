@@ -97,19 +97,19 @@ SchedulerOutputs SarathiScheduler::_schedule()
         std::cout << "schedule called 3" << std::endl;
         seq = running.front();
         running.pop_front();
-
-        if (pybind11::cast<bool> (seq.attr("is_paused")) == false) {
+        std::cout << "schedule called 3.1" << std::endl;
+        if (pybind11::cast<bool> (seq.attr("is_paused")()) == false) {
             temp_running.push_back(seq);
             continue;
         }
-        
+        std::cout << "schedule called 3.2" << std::endl;
         if (pybind11::cast<bool> (seq.attr("prompt_stage_processing_finished")) == false) {
             running_prefills.push_back(seq);
             continue;
         }
-
+        std::cout << "schedule called 3.3" << std::endl;
         bool loopCompletedNormally = true;
-        while (pybind11::cast<bool> (block_manager.attr("can_append_slot")) == false) {
+        while (pybind11::cast<bool> (block_manager.attr("can_append_slot")()) == false) {
             if (!running.empty()) {
                 pybind11::object victim_seq = running.back();
                 running.pop_back();
@@ -122,6 +122,7 @@ SchedulerOutputs SarathiScheduler::_schedule()
                 break;
             }
         }
+        std::cout << "schedule called 3.4" << std::endl;
         if (loopCompletedNormally) {
             _append_slot(seq);
             temp_running.push_back(seq);
@@ -170,7 +171,7 @@ SchedulerOutputs SarathiScheduler::_schedule()
             break;
         }
 
-        if (temp_running.size() > pybind11::cast<int> (scheduler_config.attr("max_num_seqs"))) {
+        if (temp_running.size() >= pybind11::cast<int> (scheduler_config.attr("max_num_seqs"))) {
             break;
         }
 
@@ -185,8 +186,8 @@ SchedulerOutputs SarathiScheduler::_schedule()
         seq_wrapped = waiting.top();
         waiting.pop();
         seq = seq_wrapped.seq;
+        _allocate(seq);
         num_batched_tokens += next_num_prefill_tokens;
-        std::cout << "push_back 3" << std::endl;
         temp_scheduled_seq_metadata_list.push_back(
             sequence_schedule_metadata.attr("SequenceScheduleMetadata").attr("from_sequence")(seq, pybind11::int_(next_num_prefill_tokens))
             
@@ -208,7 +209,6 @@ SchedulerOutputs SarathiScheduler::_schedule()
         // }
 
         metrics_store.attr("on_request_arrival")(seq);
-        std::cout << "push_back 3.7" << std::endl;
         temp_running.push_back(seq);
         std::cout << "schedule called 6" << std::endl;
     }
