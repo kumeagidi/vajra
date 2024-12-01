@@ -94,15 +94,18 @@ SchedulerOutputs SarathiScheduler::_schedule()
     std::vector<pybind11::object> running_prefills;
 
     while (!running.empty()) {
+        std::cout << "schedule called 3" << std::endl;
         seq = running.front();
         running.pop_front();
 
         if (pybind11::cast<bool> (seq.attr("is_paused")) == false) {
             temp_running.push_back(seq);
+            continue;
         }
-        std::cout << "schedule called 3" << std::endl;
+        
         if (pybind11::cast<bool> (seq.attr("prompt_stage_processing_finished")) == false) {
             running_prefills.push_back(seq);
+            continue;
         }
 
         bool loopCompletedNormally = true;
@@ -129,79 +132,88 @@ SchedulerOutputs SarathiScheduler::_schedule()
                 sequence_schedule_metadata.attr("SequenceScheduleMetadata").attr("from_sequence")(seq)
             );
         }
-        std::cout << "schedule called 4" << std::endl;
-        for (pybind11::object& seq: running_prefills) {
-            std::cout << "enter for loop" << std::endl;
-            next_num_prefill_tokens =  _get_seq_next_num_prefill_tokens(
-                seq, num_batched_tokens
-            );
-
-            if (next_num_prefill_tokens == 0) {
-                temp_running.push_back(seq);
-                continue;
-            }
-
-            num_batched_tokens += next_num_prefill_tokens;
-            std::cout << "push_back 2" << std::endl;
-            temp_scheduled_seq_metadata_list.push_back(
-                sequence_schedule_metadata.attr("SequenceScheduleMetadata").attr("from_sequence")(seq, next_num_prefill_tokens)
-            );
-            temp_running.push_back(seq);
-        }
-
-        while (!waiting.empty()) {
-            sarathi::SequenceWithPriority seq_wrapped = waiting.top();
-            seq = seq_wrapped.seq;
-            std::cout << "schedule called 5" << std::endl;
-            if (seq.attr("arrival_time").cast<float>() > now.cast<float>()) {
-                break;
-            }
-
-            if (!_check_request_prompt_length(seq)) {
-                temp_ignored_seq_ids.push_back(seq.attr("seq_id"));
-                continue;
-            }
-
-            if (pybind11::cast<bool> (block_manager.attr("can_allocate")(seq)) == false) {
-                break;
-            }
-
-            if (temp_running.size() > pybind11::cast<int> (scheduler_config.attr("max_num_seqs"))) {
-                break;
-            }
-
-            next_num_prefill_tokens = _get_seq_next_num_prefill_tokens(
-                seq, num_batched_tokens
-            );
-
-            if (next_num_prefill_tokens == 0) {
-                break;
-            }
-
-            seq_wrapped = waiting.top();
-            waiting.pop();
-            seq = seq_wrapped.seq;
-            num_batched_tokens += next_num_prefill_tokens;
-            std::cout << "push_back 3" << std::endl;
-            temp_scheduled_seq_metadata_list.push_back(
-                sequence_schedule_metadata.attr("SequenceScheduleMetadata").attr("from_sequence")(seq, next_num_prefill_tokens)
-                
-            );
-
-            int seq_id = pybind11::cast<int> (seq.attr("seq_id"));
-            if (seq_seen.find(seq_id) == seq_seen.end()) {
-                add_seq_to_seq_manager(seq);
-                add_to_new_seqs(seq);  // deepcopy not needed for pybind11 objects
-                seq_seen.insert(seq_id);
-            }
-
-            metrics_store.attr("on_request_arrival")(seq);
-            temp_running.push_back(seq);
-            std::cout << "schedule called 6" << std::endl;
-        }
-        running = temp_running;
-
     }
+    std::cout << "schedule called 4" << std::endl;
+    for (pybind11::object& seq: running_prefills) {
+        std::cout << "enter for loop" << std::endl;
+        next_num_prefill_tokens =  _get_seq_next_num_prefill_tokens(
+            seq, num_batched_tokens
+        );
+
+        if (next_num_prefill_tokens == 0) {
+            temp_running.push_back(seq);
+            continue;
+        }
+
+        num_batched_tokens += next_num_prefill_tokens;
+        std::cout << "push_back 2" << std::endl;
+        temp_scheduled_seq_metadata_list.push_back(
+            sequence_schedule_metadata.attr("SequenceScheduleMetadata").attr("from_sequence")(seq, pybind11::int_(next_num_prefill_tokens))
+        );
+        temp_running.push_back(seq);
+    }
+
+    while (!waiting.empty()) {
+        sarathi::SequenceWithPriority seq_wrapped = waiting.top();
+        seq = seq_wrapped.seq;
+        std::cout << "schedule called 5" << std::endl;
+        if (seq.attr("arrival_time").cast<float>() > now.cast<float>()) {
+            break;
+        }
+
+        if (!_check_request_prompt_length(seq)) {
+            temp_ignored_seq_ids.push_back(seq.attr("seq_id"));
+            continue;
+        }
+
+        if (pybind11::cast<bool> (block_manager.attr("can_allocate")(seq)) == false) {
+            break;
+        }
+
+        if (temp_running.size() > pybind11::cast<int> (scheduler_config.attr("max_num_seqs"))) {
+            break;
+        }
+
+        next_num_prefill_tokens = _get_seq_next_num_prefill_tokens(
+            seq, num_batched_tokens
+        );
+
+        if (next_num_prefill_tokens == 0) {
+            break;
+        }
+
+        seq_wrapped = waiting.top();
+        waiting.pop();
+        seq = seq_wrapped.seq;
+        num_batched_tokens += next_num_prefill_tokens;
+        std::cout << "push_back 3" << std::endl;
+        temp_scheduled_seq_metadata_list.push_back(
+            sequence_schedule_metadata.attr("SequenceScheduleMetadata").attr("from_sequence")(seq, pybind11::int_(next_num_prefill_tokens))
+            
+        );
+
+        std::cout << "push_back 3.1" << std::endl;
+
+        // std::string seq_id = pybind11::cast<std::string> (seq.attr("seq_id"));
+
+        // std::cout << "push_back 3.2" << std::endl;
+        // if (seq_seen.find(seq_id) == seq_seen.end()) {
+        //     std::cout << "push_back 3.3" << std::endl;
+        //     add_seq_to_seq_manager(seq);
+        //     std::cout << "push_back 3.4" << std::endl;
+        //     add_to_new_seqs(seq);  // deepcopy not needed for pybind11 objects
+        //     std::cout << "push_back 3.5" << std::endl;
+        //     seq_seen.insert(seq_id);
+        //     std::cout << "push_back 3.6" << std::endl;
+        // }
+
+        metrics_store.attr("on_request_arrival")(seq);
+        std::cout << "push_back 3.7" << std::endl;
+        temp_running.push_back(seq);
+        std::cout << "schedule called 6" << std::endl;
+    }
+    
+    running = temp_running;
     std::cout << "schedule called 7" << std::endl;
     return sarathi::SchedulerOutputs(
         BaseScheduler::_iteration_id,

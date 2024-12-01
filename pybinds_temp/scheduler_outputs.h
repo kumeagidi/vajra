@@ -2,6 +2,7 @@
 #define SCHEDULER_OUTPUTS_H
 
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 namespace sarathi
 {

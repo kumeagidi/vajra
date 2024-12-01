@@ -5,6 +5,7 @@
 #include "sequence_with_priority.h"
 #include <queue>
 //#include "csrc/commons/Logging.h"
+#include <pybind11/stl.h>
 
 namespace sarathi
 {
