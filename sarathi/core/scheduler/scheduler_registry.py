@@ -5,8 +5,6 @@ from sarathi.core.scheduler.faster_transformer_scheduler import (
 # from sarathi.core.scheduler.mnemosyne_scheduler import MnemosyneScheduler
 from sarathi.core.scheduler.orca_scheduler import OrcaScheduler
 #from sarathi.core.scheduler.sarathi_scheduler import SarathiScheduler
-from sarathi import _base_scheduler_C
-print("THIS ONE WORKS")
 from sarathi._base_scheduler_C.BaseScheduler import SarathiScheduler
 
 from sarathi.core.scheduler.simple_chunking_scheduler import SimpleChunkingScheduler

@@ -12,7 +12,8 @@
 #include <xtensor/xio.hpp>
 // mamba install -c conda-forge xtensor
 pybind11::module sarathi_block_space_manager = pybind11::module::import("sarathi.core.block_space_manager.sarathi_block_space_manager");
-pybind11::module sequence_schedule_metadata = pybind11::module::import("sarathi.core.datatypes.sequence.SequenceScheduleMetadata");
+pybind11::module sequence_schedule_metadata = pybind11::module::import("sarathi.core.datatypes.sequence");
+
 
 using namespace sarathi;
 
@@ -21,11 +22,10 @@ SarathiScheduler::SarathiScheduler(
     pybind11::object scheduler_config,
     pybind11::object cache_config,
     pybind11::object parallel_config,
-    pybind11::object waiting_queue,
     pybind11::object replica_seq_manager,
     pybind11::object metrics_store
 ) :
-    BaseScheduler(model_config, scheduler_config, cache_config, parallel_config, waiting_queue, replica_seq_manager, metrics_store),
+    BaseScheduler(model_config, scheduler_config, cache_config, parallel_config, replica_seq_manager, metrics_store),
     chunk_size(pybind11::cast<int> (scheduler_config.attr("chunk_size"))),
     enable_dynamic_chunking_schedule(pybind11::cast<bool> (scheduler_config.attr("enable_dynamic_chunking_schedule"))),
     low_chunk_size(pybind11::cast<int> (scheduler_config.attr("low_chunk_size"))),
@@ -120,7 +120,7 @@ SchedulerOutputs SarathiScheduler::_schedule()
             num_batched_tokens++;
 
             temp_scheduled_seq_metadata_list.push_back(
-                sequence_schedule_metadata.attr("from_sequence")(seq)
+                sequence_schedule_metadata.attr("SequenceScheduleMetadata").attr("from_sequence")(seq)
             );
         }
 
@@ -136,7 +136,7 @@ SchedulerOutputs SarathiScheduler::_schedule()
 
             num_batched_tokens += next_num_prefill_tokens;
             temp_scheduled_seq_metadata_list.push_back(
-                sequence_schedule_metadata.attr("from_sequence")(seq, next_num_prefill_tokens)
+                sequence_schedule_metadata.attr("SequenceScheduleMetadata").attr("from_sequence")(seq, next_num_prefill_tokens)
             );
             temp_running.push_back(seq);
         }
@@ -175,7 +175,8 @@ SchedulerOutputs SarathiScheduler::_schedule()
             seq = seq_wrapped.seq;
             num_batched_tokens += next_num_prefill_tokens;
             temp_scheduled_seq_metadata_list.push_back(
-                sequence_schedule_metadata.attr("from_sequence")(seq, next_num_prefill_tokens)
+                sequence_schedule_metadata.attr("SequenceScheduleMetadata").attr("from_sequence")(seq, next_num_prefill_tokens)
+                
             );
 
             int seq_id = pybind11::cast<int> (seq.attr("seq_id"));

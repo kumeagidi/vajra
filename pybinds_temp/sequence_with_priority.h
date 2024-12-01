@@ -1,6 +1,6 @@
-#include <pybind11/pybind11.h>
 #ifndef SEQUENCE_WITH_PRIORITY_H
 #define SEQUENCE_WITH_PRIORITY_H
+#include <pybind11/pybind11.h>
 
 namespace sarathi
 {

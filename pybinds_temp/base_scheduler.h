@@ -16,10 +16,11 @@ class BaseScheduler
             pybind11::object scheduler_config,
             pybind11::object cache_config,
             pybind11::object parallel_config,
-            pybind11::object waiting_queue,
             pybind11::object replica_seq_manager,
             pybind11::object metrics_store
         );
+
+        virtual ~BaseScheduler() = default;
 
         //class methods here
         void reset_state();
@@ -37,7 +38,7 @@ class BaseScheduler
         void _append_slot(pybind11::object& seq);
         void _preempt(pybind11::object& seq);
         bool _check_request_prompt_length(pybind11::object& seq);
-        virtual sarathi::SchedulerOutputs _schedule();
+        virtual sarathi::SchedulerOutputs _schedule() = 0;
 
         pybind11::object policy;
         pybind11::object block_manager;

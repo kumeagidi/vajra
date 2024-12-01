@@ -14,7 +14,6 @@ BaseScheduler::BaseScheduler(
     pybind11::object scheduler_config,
     pybind11::object cache_config,
     pybind11::object parallel_config,
-    pybind11::object waiting_queue,
     pybind11::object replica_seq_manager,
     pybind11::object metrics_store
 ) :
@@ -92,7 +91,7 @@ sarathi::SchedulerOutputs BaseScheduler::schedule()
     std::vector<pybind11::str> preempted_seq_ids = {};
     std::vector<pybind11::object> scheduled_seq_metadata_list = {};
 
-    if (num_running_batches > pybind11::cast<int> (parallel_config.attr("pipeline_parallel_size"))) {
+    if (true || num_running_batches > pybind11::cast<int> (parallel_config.attr("pipeline_parallel_size"))) {
         return sarathi::SchedulerOutputs(
             _iteration_id,
             ignored_seq_ids,

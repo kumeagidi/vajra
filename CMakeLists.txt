@@ -205,7 +205,6 @@ set(VAJRA_BASE_SCHEDULER_EXT_SRC
 "pybinds_temp/sequence_with_priority.cpp"
 "pybinds_temp/sarathi_scheduler.cpp"
 )
-#
 
 # install()
 pybind11_add_module(_base_scheduler_C ${VAJRA_BASE_SCHEDULER_EXT_SRC})

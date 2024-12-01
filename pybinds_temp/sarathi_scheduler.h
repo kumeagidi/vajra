@@ -17,7 +17,6 @@ class SarathiScheduler : public BaseScheduler
             pybind11::object scheduler_config,
             pybind11::object cache_config,
             pybind11::object parallel_config,
-            pybind11::object waiting_queue,
             pybind11::object replica_seq_manager,
             pybind11::object metrics_store
         );

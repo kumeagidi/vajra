@@ -110,18 +110,41 @@ class BaseLLMEngine:
         self.scheduler_queue = PriorityQueue()
 
         # Create the scheduler.
-        self.scheduler = SchedulerRegistry.get(
-            config.scheduler_config.get_type(),
+        from sarathi._base_scheduler_C.BaseScheduler import SarathiScheduler
+        print("model_config:", config.model_config if config.model_config is not None else "This one!")
+        print("scheduler_config:", config.scheduler_config if config.scheduler_config is not None else "This one!")
+        print("cache_config:", config.cache_config if config.cache_config is not None else "This one!")
+        print("parallel_config:", config.parallel_config if config.parallel_config is not None else "This one!")
+        print("scheduler_queue:", self.scheduler_queue if self.scheduler_queue is not None else "This one!")
+        print("seq_manager:", self.seq_manager if self.seq_manager is not None else "This one!")
+        print("metrics_store:", self.metrics_store if self.metrics_store is not None else "This one!")
+        assert config.model_config is not None, "model_config is None"
+        assert config.scheduler_config is not None, "scheduler_config is None"
+        assert config.cache_config is not None, "cache_config is None"
+        assert config.parallel_config is not None, "parallel_config is None"
+        assert self.scheduler_queue is not None, "scheduler_queue is None"
+        assert self.seq_manager is not None, "seq_manager is None"
+        assert self.metrics_store is not None, "metrics_store is None"
+
+        self.scheduler = SarathiScheduler(
             config.model_config,
             config.scheduler_config,
             config.cache_config,
             config.parallel_config,
-            seq_waiting_queue,
             self.seq_manager,
-            self.metrics_store,
+            self.metrics_store
         )
-
-        self.waiting_queue = seq_waiting_queue
+            
+        # self.scheduler = SchedulerRegistry.get(
+        #     config.scheduler_config.get_type(),
+        #     config.model_config,
+        #     config.scheduler_config,
+        #     config.cache_config,
+        #     config.parallel_config,
+        #     seq_waiting_queue,
+        #     self.seq_manager,
+        #     self.metrics_store,
+        # )
 
         self._scheduler_timer = CpuTimer(CpuOperationMetrics.SCHEDULE)
         self._process_model_outputs_timer = CpuTimer(
