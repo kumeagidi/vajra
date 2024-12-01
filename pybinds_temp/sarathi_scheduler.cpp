@@ -74,7 +74,8 @@ int SarathiScheduler::_get_seq_next_num_prefill_tokens(pybind11::object& seq, in
 
 SchedulerOutputs SarathiScheduler::_schedule()
 {
-    float now = pybind11::module_::import("time").attr("monotonic")().cast<float>();
+    std::cout << "schedule called 1" << std::endl;
+    pybind11::object now = pybind11::module_::import("time").attr("monotonic")();
 
     std::deque<pybind11::object> temp_running;
     std::vector<pybind11::str> temp_ignored_seq_ids;
@@ -84,8 +85,11 @@ SchedulerOutputs SarathiScheduler::_schedule()
     int next_num_prefill_tokens;
 
     int num_batched_tokens = 0;
-
-    running = policy.attr("sort_by_priority")(now, running).cast<std::deque<pybind11::object>>();
+    std::cout << "schedule called 1.5" << std::endl;
+    std::sort(running.begin(), running.end(), [](const pybind11::object& a, const pybind11::object& b) {
+        return a.attr("arrival_time").cast<float>() < b.attr("arrival_time").cast<float>();
+    });
+    std::cout << "schedule called 2" << std::endl;
 
     std::vector<pybind11::object> running_prefills;
 
@@ -96,6 +100,7 @@ SchedulerOutputs SarathiScheduler::_schedule()
         if (pybind11::cast<bool> (seq.attr("is_paused")) == false) {
             temp_running.push_back(seq);
         }
+        std::cout << "schedule called 3" << std::endl;
         if (pybind11::cast<bool> (seq.attr("prompt_stage_processing_finished")) == false) {
             running_prefills.push_back(seq);
         }
@@ -117,14 +122,16 @@ SchedulerOutputs SarathiScheduler::_schedule()
         if (loopCompletedNormally) {
             _append_slot(seq);
             temp_running.push_back(seq);
-            num_batched_tokens++;
+            num_batched_tokens++;   
 
+            std::cout << "push_back 1" << std::endl;
             temp_scheduled_seq_metadata_list.push_back(
                 sequence_schedule_metadata.attr("SequenceScheduleMetadata").attr("from_sequence")(seq)
             );
         }
-
+        std::cout << "schedule called 4" << std::endl;
         for (pybind11::object& seq: running_prefills) {
+            std::cout << "enter for loop" << std::endl;
             next_num_prefill_tokens =  _get_seq_next_num_prefill_tokens(
                 seq, num_batched_tokens
             );
@@ -135,6 +142,7 @@ SchedulerOutputs SarathiScheduler::_schedule()
             }
 
             num_batched_tokens += next_num_prefill_tokens;
+            std::cout << "push_back 2" << std::endl;
             temp_scheduled_seq_metadata_list.push_back(
                 sequence_schedule_metadata.attr("SequenceScheduleMetadata").attr("from_sequence")(seq, next_num_prefill_tokens)
             );
@@ -144,10 +152,10 @@ SchedulerOutputs SarathiScheduler::_schedule()
         while (!waiting.empty()) {
             sarathi::SequenceWithPriority seq_wrapped = waiting.top();
             seq = seq_wrapped.seq;
-
-            //not done if (seq.attr("arrival_time") > now) {
-                // break
-            //}
+            std::cout << "schedule called 5" << std::endl;
+            if (seq.attr("arrival_time").cast<float>() > now.cast<float>()) {
+                break;
+            }
 
             if (!_check_request_prompt_length(seq)) {
                 temp_ignored_seq_ids.push_back(seq.attr("seq_id"));
@@ -174,6 +182,7 @@ SchedulerOutputs SarathiScheduler::_schedule()
             waiting.pop();
             seq = seq_wrapped.seq;
             num_batched_tokens += next_num_prefill_tokens;
+            std::cout << "push_back 3" << std::endl;
             temp_scheduled_seq_metadata_list.push_back(
                 sequence_schedule_metadata.attr("SequenceScheduleMetadata").attr("from_sequence")(seq, next_num_prefill_tokens)
                 
@@ -188,11 +197,12 @@ SchedulerOutputs SarathiScheduler::_schedule()
 
             metrics_store.attr("on_request_arrival")(seq);
             temp_running.push_back(seq);
+            std::cout << "schedule called 6" << std::endl;
         }
         running = temp_running;
 
     }
-
+    std::cout << "schedule called 7" << std::endl;
     return sarathi::SchedulerOutputs(
         BaseScheduler::_iteration_id,
         temp_ignored_seq_ids,

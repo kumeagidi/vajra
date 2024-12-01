@@ -90,8 +90,10 @@ sarathi::SchedulerOutputs BaseScheduler::schedule()
     std::vector<pybind11::str> ignored_seq_ids = {};
     std::vector<pybind11::str> preempted_seq_ids = {};
     std::vector<pybind11::object> scheduled_seq_metadata_list = {};
+    std::cout << " regular schedule 1" << std::endl;
 
-    if (true || num_running_batches > pybind11::cast<int> (parallel_config.attr("pipeline_parallel_size"))) {
+    if (num_running_batches > pybind11::cast<int> (parallel_config.attr("pipeline_parallel_size"))) {
+        std::cout << " regular schedule 2" << std::endl;
         return sarathi::SchedulerOutputs(
             _iteration_id,
             ignored_seq_ids,
@@ -99,12 +101,13 @@ sarathi::SchedulerOutputs BaseScheduler::schedule()
             scheduled_seq_metadata_list
         );
     }
-
+    std::cout << " regular schedule 3" << std::endl;
     sarathi::SchedulerOutputs scheduler_outputs = _schedule();
 
      if (!scheduler_outputs.is_empty()) {
          num_running_batches++;
      }
+     std::cout << " regular schedule 4" << std::endl;
      return scheduler_outputs;
 }
 
@@ -156,7 +159,8 @@ void BaseScheduler::_preempt(pybind11::object& seq)
 bool BaseScheduler::_check_request_prompt_length(pybind11::object& seq)
 {
     if (pybind11::cast<int> (seq.attr("get_len")()) > prompt_limit) {
-        seq.attr("set_status")(pybind11::cast (sarathi::SequenceStatus::Status::FINISHED_STOPPED));
+        pybind11::module_ sequence_status = pybind11::module_::import("sarathi.core.datatypes.sequence_status");
+        seq.attr("set_status")(sequence_status.attr("FINISHED_IGNORED"));
         if (!waiting.empty()) {
             waiting.pop();
         }

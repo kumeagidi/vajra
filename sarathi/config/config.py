@@ -279,19 +279,21 @@ class SarathiSchedulerConfig(BaseSchedulerConfig):
     enable_dynamic_chunking_schedule: bool = field(
         default=False, metadata={"help": "Enable dynamic chunking schedule."}
     )
+    # Changed to 0 from None
     low_chunk_size: Optional[int] = field(
-        default=None, metadata={"help": "Minimum chunk size for dynamic chunking."}
+        default=0, metadata={"help": "Minimum chunk size for dynamic chunking."}
     )
     high_chunk_size: Optional[int] = field(
-        default=None, metadata={"help": "Maximum chunk size for dynamic chunking."}
+        default=0, metadata={"help": "Maximum chunk size for dynamic chunking."}
     )
     chunk_schedule_max_tokens: Optional[int] = field(
-        default=None,
+        default=0,
         metadata={"help": "Maximum number of tokens for chunk scheduling."},
     )
     chunk_schedule_stages: Optional[int] = field(
-        default=None, metadata={"help": "Number of stages for chunk scheduling."}
+        default=0, metadata={"help": "Number of stages for chunk scheduling."}
     )
+    # Ends here
 
     def get_max_num_batched_tokens(self, max_model_len: int):
         # Sarathi never schedules more than chunk_size tokens in one iteration.

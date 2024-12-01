@@ -127,9 +127,12 @@ def generate(
     # Run the engine
     outputs: List[RequestOutput] = []
     while llm_engine.has_unfinished_requests():
+        print("llm engine has unfinished requests - loop")
         step_outputs = llm_engine.step()
         for output in step_outputs:
+            print("loop started")
             if output.finished:
+                print("finished")
                 outputs.append(output)
                 pbar.update(1)
 
